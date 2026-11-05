@@ -283,7 +283,9 @@ export function Composer() {
             }
           }}
         />
-        <div className="flex items-center gap-1 overflow-hidden px-2 pb-2">
+        {/* No overflow clipping here: the pickers' menus open upward out of this row. */}
+        <div className="flex items-end gap-1 px-2 pb-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1">
           <Dropdown<PermissionMode> value={mode} up options={MODES} onChange={(m) => void st().setMode(m)} />
           <Dropdown<string>
             value={prefs[engine].model}
@@ -300,6 +302,7 @@ export function Composer() {
           <Dropdown<string>
             value={prefs[engine].effort}
             up
+            align="right"
             label={<span>{prefs[engine].effort ? `Effort: ${prefs[engine].effort}` : 'Effort: auto'}</span>}
             options={effortList.map((e) => ({ value: e, label: e || 'Auto', hint: e ? undefined : 'Engine default (applies to new conversations)' }))}
             onChange={(eff) => {
@@ -308,9 +311,9 @@ export function Composer() {
               set({ prefs: p, started: null })
             }}
           />
-          <div className="flex-1" />
+          </div>
           <button
-            className="icon-btn"
+            className="icon-btn shrink-0"
             title="Attach images"
             onClick={async () => {
               const p = await api.app.pickImages()

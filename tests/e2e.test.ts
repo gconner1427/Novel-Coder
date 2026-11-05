@@ -68,6 +68,33 @@ describe.skipIf(!E2E)('Novel Coder app', () => {
     await page.fill('#composer-input', '')
   })
 
+  it('opens and uses the mode, model and effort pickers', async () => {
+    // Each picker's menu must be visible and clickable (it opens upward out of the composer).
+    page.setDefaultTimeout(5000)
+    const pick = async (trigger: string, option: string) => {
+      await page.click(`button:has-text("${trigger}")`)
+      // Exact match, so "high" doesn't also hit "xhigh".
+      const opt = page.getByText(option, { exact: true }).last()
+      await opt.waitFor({ state: 'visible', timeout: 3000 })
+      expect(await opt.evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+        return !!hit && el.contains(hit)
+      }), `${option} is not covered or clipped`).toBe(true)
+      await opt.click()
+    }
+    await pick('Ask before edits', 'Plan mode')
+    await page.waitForSelector('footer >> text=Plan mode')
+    await pick('Plan mode', 'Ask before edits')
+    await pick('Default model', 'sonnet')
+    await page.waitForSelector('button:has-text("sonnet")')
+    await pick('sonnet', 'Default model')
+    await pick('Effort: auto', 'high')
+    await page.waitForSelector('button:has-text("Effort: high")')
+    await page.screenshot({ path: path.join(shots, '03b-pickers.png') })
+    await pick('Effort: high', 'Auto')
+  })
+
   it('switches engines with the toggle', async () => {
     await page.click('[role=radio]:has-text("Codex")')
     expect(await page.locator('[role=radio][aria-checked=true]').innerText()).toContain('Codex')
