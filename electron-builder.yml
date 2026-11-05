@@ -1,0 +1,31 @@
+appId: com.novelcoder.app
+productName: Novel Coder
+copyright: Copyright © 2026 Grant
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+# The engines spawn native executables; these must live outside the asar archive.
+asarUnpack:
+  - node_modules/@anthropic-ai/claude-agent-sdk/**
+  - node_modules/@anthropic-ai/claude-agent-sdk-win32-x64/**
+  - node_modules/@openai/codex/**
+  - node_modules/@openai/codex-sdk/**
+  - node_modules/@openai/codex-win32-x64/**
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.png
+  executableName: NovelCoder
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Novel Coder
+  artifactName: Novel-Coder-Setup-${version}.exe
