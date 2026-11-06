@@ -501,9 +501,9 @@ function createWindow() {
     minWidth: 980,
     minHeight: 600,
     title: 'Novel Coder',
-    backgroundColor: '#16161a',
+    backgroundColor: '#0c0e13',
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#00000000', symbolColor: '#a1a1aa', height: 40 },
+    titleBarOverlay: { color: '#00000000', symbolColor: '#9ba1ae', height: 40 },
     icon: path.join(import.meta.dirname, '../../build/icon.png'),
     webPreferences: {
       preload: path.join(import.meta.dirname, '../preload/index.cjs'),

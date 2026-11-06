@@ -84,7 +84,7 @@ export function SeriesPanel() {
         </div>
       )}
 
-      <div className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-faint">Books</div>
+      <div className="px-3 pb-1 pt-1 section-label">Books</div>
       {series.books.map((b) => (
         <button
           key={b.root}
@@ -120,7 +120,7 @@ export function SeriesPanel() {
         </div>
       )}
 
-      <div className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-faint">Series files</div>
+      <div className="px-3 pb-1 pt-4 section-label">Series files</div>
       {[
         [`${prefix}/series-outline.md`, 'Series outline'],
         [`${prefix}/SERIES.md`, 'Series instructions for the AI'],

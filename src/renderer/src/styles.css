@@ -5,7 +5,9 @@
   --color-panel: var(--panel);
   --color-panel2: var(--panel2);
   --color-raised: var(--raised);
+  --color-sheet: var(--sheet);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
@@ -16,48 +18,72 @@
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-err: var(--err);
-  --font-ui: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
-  --font-prose: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  --font-ui: 'Instrument Sans Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font-prose: 'Literata Variable', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
   --font-code: 'Cascadia Code', 'Cascadia Mono', Consolas, monospace;
 }
 
+/*
+  Dark Studio: night ink and lamplight.
+  Surfaces are layers of blue-black ink; hierarchy comes from tone and depth, not outlines.
+  Brass is the only accent. Claude orange / Codex green only ever mean "which AI".
+*/
 :root {
-  --bg: #141413;
-  --panel: #1b1b19;
-  --panel2: #21211e;
-  --raised: #2a2a26;
-  --line: #34332e;
-  --fg: #ecebe6;
-  --muted: #a3a197;
-  --faint: #6d6b62;
-  --accent: #d97757;
-  --accent-fg: #1a0f0a;
-  --claude: #d97757;
-  --codex: #10a37f;
-  --ok: #7fb069;
-  --warn: #e0b04f;
-  --err: #e5604d;
-  --sel: rgba(217, 119, 87, 0.28);
+  --bg: #0c0e13;
+  --panel: #111319;
+  --panel2: #171a22;
+  --raised: #1e222c;
+  --sheet: #13161d;
+  --line: rgba(170, 185, 220, 0.075);
+  --line-strong: rgba(170, 185, 220, 0.14);
+  --fg: #ebe7dd;
+  --muted: #9ba1ae;
+  --faint: #626a7a;
+  --accent: #d6ac5e;
+  --accent-fg: #1c1507;
+  --accent-soft: rgba(214, 172, 94, 0.13);
+  --claude: #e08460;
+  --codex: #2bb58f;
+  --ok: #8dbb76;
+  --warn: #e2b558;
+  --err: #ec6a58;
+  --sel: rgba(214, 172, 94, 0.26);
+  --lamp: rgba(214, 172, 94, 0.07);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 6px 16px -4px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 24px 60px -12px rgba(0, 0, 0, 0.7), 0 8px 20px -6px rgba(0, 0, 0, 0.45);
+  --scrim: rgba(5, 6, 9, 0.62);
+  /* Light text on dark reads heavier; thin it slightly so the prose looks like ink, not bold. */
+  --prose-weight: 360;
   color-scheme: dark;
 }
 
 [data-theme='light'] {
-  --bg: #f6f4ee;
-  --panel: #efece4;
-  --panel2: #e8e4da;
+  --bg: #f4f3ef;
+  --panel: #ecebe6;
+  --panel2: #e4e3dd;
   --raised: #ffffff;
-  --line: #d9d4c7;
-  --fg: #22211d;
-  --muted: #5f5c53;
-  --faint: #9a968b;
-  --accent: #c15f3c;
+  --sheet: #fbfaf7;
+  --line: rgba(40, 45, 60, 0.09);
+  --line-strong: rgba(40, 45, 60, 0.17);
+  --fg: #1d1f24;
+  --muted: #5b606b;
+  --faint: #959aa4;
+  --accent: #9c7228;
   --accent-fg: #fff;
-  --claude: #c15f3c;
+  --accent-soft: rgba(156, 114, 40, 0.12);
+  --claude: #c8603c;
   --codex: #0b8a6a;
   --ok: #4d8a3a;
-  --warn: #a8780f;
+  --warn: #9a6d0c;
   --err: #c2412d;
-  --sel: rgba(193, 95, 60, 0.2);
+  --sel: rgba(156, 114, 40, 0.2);
+  --lamp: rgba(214, 172, 94, 0.1);
+  --shadow-sm: 0 1px 2px rgba(20, 25, 40, 0.06);
+  --shadow-md: 0 6px 16px -4px rgba(20, 25, 40, 0.12), 0 2px 4px rgba(20, 25, 40, 0.06);
+  --shadow-lg: 0 24px 60px -12px rgba(20, 25, 40, 0.25), 0 8px 20px -6px rgba(20, 25, 40, 0.1);
+  --scrim: rgba(30, 32, 40, 0.3);
+  --prose-weight: 400;
   color-scheme: light;
 }
 
@@ -73,22 +99,46 @@ body {
   color: var(--fg);
   font-family: var(--font-ui);
   font-size: 13.5px;
+  letter-spacing: 0.003em;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
 ::selection {
   background: var(--sel);
 }
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
+/* Slim overlay-style scrollbars without the Windows arrow buttons. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border: 3px solid transparent;
+  border-radius: 10px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--fg) 28%, transparent);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-button {
+  display: none;
 }
 button {
   cursor: pointer;
+  transition: background-color 0.12s, color 0.12s, border-color 0.12s, box-shadow 0.12s, opacity 0.12s;
 }
 button:disabled {
   cursor: default;
-  opacity: 0.5;
+  opacity: 0.45;
+}
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 1px;
 }
 }
 
@@ -106,42 +156,63 @@ select {
   color: inherit;
 }
 .field {
-  background: var(--panel2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 5px 9px;
   outline: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15) inset;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.field::placeholder {
+  color: var(--faint);
+}
+.field:hover {
+  border-color: color-mix(in srgb, var(--fg) 18%, transparent);
 }
 .field:focus {
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
 }
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border-radius: 6px;
-  padding: 5px 10px;
-  border: 1px solid var(--line);
-  background: var(--panel2);
+  border-radius: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
   color: var(--fg);
+  font-weight: 500;
   white-space: nowrap;
+  box-shadow: var(--shadow-sm), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
 }
 .btn:hover:not(:disabled) {
-  background: var(--raised);
+  background: color-mix(in srgb, var(--raised) 88%, var(--fg) 12%);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(0.5px);
 }
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff 12%), var(--accent));
+  border-color: color-mix(in srgb, var(--accent) 80%, #000 20%);
   color: var(--accent-fg);
   font-weight: 600;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 4px 14px -4px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-  background: var(--accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, #fff 20%), color-mix(in srgb, var(--accent) 94%, #fff 6%));
 }
 .btn-ghost {
   border-color: transparent;
   background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--panel2);
+  color: var(--fg);
 }
 .icon-btn {
   display: inline-flex;
@@ -149,22 +220,89 @@ select {
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: 7px;
   color: var(--muted);
 }
 .icon-btn:hover {
-  background: var(--raised);
+  background: var(--panel2);
   color: var(--fg);
 }
+/* Sentence-case section heading for panels and dialogs (replaces all-caps labels). */
+.section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+.surface-pop {
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-md);
+}
+}
 
+/* ---------- motion: only in answer to something the writer did ---------- */
+@keyframes nc-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes nc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+@keyframes nc-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes nc-lift {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+.anim-fade {
+  animation: nc-fade 0.16s ease-out;
+}
+.anim-rise {
+  animation: nc-rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.anim-drop {
+  animation: nc-drop 0.14s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: top;
+}
+.anim-lift {
+  animation: nc-lift 0.14s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: bottom;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ---------- the writing desk: one lamp over the page ---------- */
+.desk {
+  background:
+    radial-gradient(ellipse 60% 380px at 50% -140px, var(--lamp), transparent 72%),
+    var(--bg);
 }
 
 /* ---------- prose editor ---------- */
 .prose-editor .ProseMirror {
   outline: none;
   font-family: var(--prose-font, var(--font-prose));
-  font-size: 18px;
-  line-height: 1.75;
+  font-size: 18.5px;
+  font-weight: var(--prose-weight, 400);
+  line-height: 1.8;
+  font-optical-sizing: auto;
   min-height: 60vh;
   padding-bottom: 40vh;
   caret-color: var(--accent);
@@ -179,8 +317,8 @@ select {
 .prose-editor .ProseMirror h1,
 .prose-editor .ProseMirror h2,
 .prose-editor .ProseMirror h3 {
-  font-family: var(--font-ui);
-  font-weight: 650;
+  font-family: var(--font-prose);
+  font-weight: 600;
   margin: 1.2em 0 0.5em;
   text-indent: 0;
 }

@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.3.0',
+    summary: 'A new look: Dark Studio.',
+    items: [
+      {
+        title: 'Dark Studio',
+        body:
+          'Novel Coder has a new look: deep ink-blue surfaces, a soft lamplight over the page and a brass accent. New typefaces are built in: Literata for your prose and Instrument Sans for everything else. Menus, dialogs and notifications open with gentle motion. The light theme has been refreshed to match.'
+      },
+      {
+        title: 'Your words come first',
+        body:
+          "A scene now opens with its title, its summary and one quiet line showing its status, POV, place and time, instead of a form. Click Scene details to edit them. The editor's tools and the AI actions (Continue, Line edit, Continuity, Blocking) now fit on one row."
+      }
+    ]
+  },
+  {
     version: '0.2.1',
     summary: 'Fixes the slowdowns and freezes.',
     items: [

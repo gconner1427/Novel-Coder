@@ -44,16 +44,26 @@ export function Sidebar() {
   const tab = useStore((s) => s.sidebar)
   const set = useStore((s) => s.set)
   return (
-    <div className="flex shrink-0 bg-panel">
-      <nav className="flex w-11 flex-col items-center gap-1 border-r border-line py-2">
-        {TABS.map((t) => (
-          <button key={t.id} title={t.label} onClick={() => set({ sidebar: t.id })} className={`icon-btn h-9 w-9 ${tab === t.id ? 'bg-raised text-fg' : ''}`}>
-            {t.icon}
-          </button>
-        ))}
+    <div className="flex shrink-0">
+      <nav className="flex w-12 flex-col items-center gap-1 border-r border-line bg-bg py-2.5" aria-label="Sidebar">
+        {TABS.map((t) => {
+          const on = tab === t.id
+          return (
+            <button
+              key={t.id}
+              title={t.label}
+              aria-current={on ? 'page' : undefined}
+              onClick={() => set({ sidebar: t.id })}
+              className={`icon-btn relative h-9 w-9 ${on ? 'bg-panel2 text-fg' : 'text-faint'}`}
+            >
+              {on && <span className="absolute -left-[7px] top-2 bottom-2 w-[3px] rounded-r-full bg-accent" style={{ boxShadow: '0 0 10px var(--accent)' }} />}
+              {t.icon}
+            </button>
+          )
+        })}
       </nav>
-      <div className="flex w-[260px] flex-col">
-        <div className="flex h-9 shrink-0 items-center px-3 text-[11.5px] font-semibold uppercase tracking-wider text-faint">{TABS.find((t) => t.id === tab)?.label}</div>
+      <div className="flex w-[264px] flex-col bg-panel">
+        <div className="flex h-10 shrink-0 items-center px-4 text-[13.5px] font-semibold tracking-[-0.01em] text-fg">{TABS.find((t) => t.id === tab)?.label}</div>
         <div className="min-h-0 flex-1 overflow-y-auto pb-4">
           {tab === 'series' && <SeriesPanel />}
           {tab === 'manuscript' && <ManuscriptPanel />}
@@ -122,7 +132,9 @@ function Row({
         onDrop?.(e)
       }}
       onClick={onClick}
-      className={`group mx-1 flex cursor-pointer items-center gap-1.5 rounded-md py-1 pr-1 text-[13px] ${active ? 'bg-raised text-fg' : 'text-muted hover:bg-panel2 hover:text-fg'} ${over ? 'ring-1 ring-accent' : ''}`}
+      className={`group mx-2 flex cursor-pointer items-center gap-1.5 rounded-[7px] py-[5px] pr-1 text-[13px] transition-colors ${
+        active ? 'bg-raised text-fg shadow-[var(--shadow-sm)]' : 'text-muted hover:bg-panel2 hover:text-fg'
+      } ${over ? 'ring-1 ring-accent' : ''}`}
       style={{ paddingLeft: 8 + indent * 14 }}
     >
       {children}

@@ -81,7 +81,7 @@ export function FormatBar({ editor }: { editor: Editor | null }) {
   }, [editor])
   if (!editor) return null
   const b = (title: string, on: boolean, fn: () => void, icon: React.ReactNode) => (
-    <button title={title} className={`icon-btn h-7 w-7 ${on ? 'bg-raised text-fg' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={fn}>
+    <button title={title} className={`icon-btn h-7 w-7 ${on ? 'bg-panel2 text-accent' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={fn}>
       {icon}
     </button>
   )
@@ -94,7 +94,7 @@ export function FormatBar({ editor }: { editor: Editor | null }) {
       {b('Quote', editor.isActive('blockquote'), () => c().toggleBlockquote().run(), <Quote size={14} />)}
       {b('List', editor.isActive('bulletList'), () => c().toggleBulletList().run(), <List size={14} />)}
       {b('Scene break', false, () => c().setHorizontalRule().run(), <Minus size={14} />)}
-      <span className="mx-1 h-4 w-px bg-line" />
+      <span className="mx-1.5 h-4 w-px bg-line-strong" />
       {b('Undo (Ctrl+Z)', false, () => c().undo().run(), <Undo2 size={14} />)}
       {b('Redo (Ctrl+Y)', false, () => c().redo().run(), <Redo2 size={14} />)}
     </div>

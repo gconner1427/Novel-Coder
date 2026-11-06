@@ -74,7 +74,7 @@ export function Welcome() {
 
         {brainstorms.length > 0 && (
           <div className="mb-8">
-            <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-faint">Brainstorms</h3>
+            <h3 className="mb-2 section-label">Brainstorms</h3>
             <div className="overflow-hidden rounded-xl border border-line">
               {brainstorms.slice(0, 8).map((b) => (
                 <div key={b.id} className="group flex items-center gap-3 border-b border-line bg-panel px-4 py-2.5 last:border-0 hover:bg-panel2">
@@ -103,7 +103,7 @@ export function Welcome() {
 
         {!!settings?.recent.length && (
           <div className="mb-8">
-            <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-faint">Recent</h3>
+            <h3 className="mb-2 section-label">Recent</h3>
             <div className="overflow-hidden rounded-xl border border-line">
               {settings.recent.map((r) => (
                 <button key={r} className="flex w-full items-center gap-3 border-b border-line bg-panel px-4 py-2.5 text-left last:border-0 hover:bg-panel2" onClick={() => void open(r)}>
@@ -116,7 +116,7 @@ export function Welcome() {
           </div>
         )}
 
-        <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-faint">Engines</h3>
+        <h3 className="mb-2 section-label">Engines</h3>
         <div className="grid grid-cols-2 gap-3">
           {(['claude', 'codex'] as EngineId[]).map((e) => {
             const a = auth?.[e]

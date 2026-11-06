@@ -24,7 +24,7 @@ export function Corkboard() {
       </div>
       {project.chapters.map((ch) => (
         <section key={ch.folder} className="mb-6">
-          <h2 className="mb-2 text-[13px] font-semibold uppercase tracking-wider text-faint">
+          <h2 className="mb-2 section-label">
             {ch.title} <span className="font-normal normal-case">· {ch.words.toLocaleString()} words</span>
           </h2>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">

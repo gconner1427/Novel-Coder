@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
-import { X, FileText, BarChart3, LayoutGrid, Sparkles, Eye, AlignLeft, MessageSquareQuote, ShieldCheck, Wand2, FolderOpen, Footprints } from 'lucide-react'
+import { X, FileText, BarChart3, LayoutGrid, Sparkles, Eye, AlignLeft, MessageSquareQuote, ShieldCheck, Wand2, FolderOpen, Footprints, User, MapPin, Clock, ChevronDown } from 'lucide-react'
+import { Dropdown, StatusPill } from '../ui'
 import { api } from '../../lib/api'
 import { useStore, tabKey, type Tab } from '../../store'
 import { ProseEditor, FormatBar, countWordsClient } from './ProseEditor'
@@ -34,23 +35,25 @@ export function EditorPane() {
 
   return (
     <div className="flex h-full flex-col bg-bg">
-      <div className="flex h-9 shrink-0 items-end gap-0.5 overflow-x-auto border-b border-line bg-panel px-1">
+      <div className="flex h-10 shrink-0 items-stretch gap-1 overflow-x-auto overflow-y-hidden border-b border-line bg-panel px-2" role="tablist">
         {tabs.map((t) => {
           const k = tabKey(t)
           const on = k === active
           return (
             <div
               key={k}
+              role="tab"
+              aria-selected={on}
               onMouseDown={(e) => e.button === 1 && closeTab(k)}
               onClick={() => set({ active: k })}
-              className={`group flex h-8 max-w-[200px] cursor-pointer items-center gap-1.5 rounded-t-md border border-b-0 px-3 text-[12.5px] ${
-                on ? 'border-line bg-bg text-fg' : 'border-transparent text-muted hover:text-fg'
-              }`}
+              className={`group relative flex max-w-[220px] cursor-pointer items-center gap-1.5 px-2.5 text-[12.5px] transition-colors ${on ? 'text-fg' : 'text-faint hover:text-muted'}`}
             >
-              {t.kind === 'progress' ? <BarChart3 size={13} /> : t.kind === 'corkboard' ? <LayoutGrid size={13} /> : <FileText size={13} />}
-              <span className="truncate">{tabLabel(t, titleFor)}</span>
+              {on && <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-accent" />}
+              {t.kind === 'progress' ? <BarChart3 size={13} /> : t.kind === 'corkboard' ? <LayoutGrid size={13} /> : <FileText size={13} className={on ? 'text-accent' : ''} />}
+              <span className={`truncate ${on ? 'font-medium' : ''}`}>{tabLabel(t, titleFor)}</span>
               <button
-                className="ml-1 rounded p-0.5 opacity-0 hover:bg-raised group-hover:opacity-100"
+                aria-label="Close tab"
+                className="ml-0.5 rounded p-0.5 opacity-0 hover:bg-raised group-hover:opacity-100"
                 onClick={(e) => {
                   e.stopPropagation()
                   closeTab(k)
@@ -203,50 +206,59 @@ function DocEditor({ path }: { path: string }) {
   return (
     <div className={`flex h-full flex-col ${focusMode ? 'focus-mode' : ''}`}>
       {/* toolbar */}
-      <div className="@container flex min-h-10 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-line px-3 py-1" data-testid="doc-toolbar">
+      <div className="@container flex min-h-11 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-line bg-panel/60 px-3 py-1.5" data-testid="doc-toolbar">
         {isMd && <FormatBar editor={editorInst} />}
         <div className="flex-1" />
-        {isScene && (
-          <>
-            <button className="btn btn-ghost py-1 text-[12px]" title="Continue writing from the end of this scene" onClick={() => void ask('continue', path)}>
-              <Sparkles size={13} /> <span className="hidden @[640px]:inline">Continue</span>
-            </button>
-            <button className="btn btn-ghost py-1 text-[12px]" title="Line-edit this scene" onClick={() => void ask('line-edit', path)}>
-              <Wand2 size={13} /> <span className="hidden @[640px]:inline">Line edit</span>
-            </button>
-            <button className="btn btn-ghost py-1 text-[12px]" title="Check this scene against the story bible" onClick={() => void ask('continuity', path)}>
-              <ShieldCheck size={13} /> <span className="hidden @[640px]:inline">Continuity</span>
-            </button>
-            <button
-              className="btn btn-ghost py-1 text-[12px]"
-              title="Check the scene's blocking line by line: positions, hands, props, entrances and exits, and whether the POV can see or hear what's narrated"
-              onClick={() => void ask('blocking', path)}
-            >
-              <Footprints size={13} /> <span className="hidden @[640px]:inline">Blocking</span>
-            </button>
-          </>
-        )}
         {selection && (
-          <button className="btn py-1 text-[12px]" title="Quote the selection into the chat" onClick={quoteSelection}>
-            <MessageSquareQuote size={13} /> Ask about selection
+          <button className="btn anim-fade py-1 text-[12px]" title="Quote the selection into the chat" onClick={quoteSelection}>
+            <MessageSquareQuote size={13} className="text-accent" /> Ask about selection
           </button>
         )}
+        {isScene && (
+          <div className="flex items-center gap-0.5 rounded-[9px] border border-line bg-bg/60 p-[3px]" aria-label="AI actions">
+            {(
+              [
+                ['continue', 'Continue writing from the end of this scene', <Sparkles size={13} />, 'Continue'],
+                ['line-edit', 'Line-edit this scene', <Wand2 size={13} />, 'Line edit'],
+                ['continuity', 'Check this scene against the story bible', <ShieldCheck size={13} />, 'Continuity'],
+                [
+                  'blocking',
+                  "Check the scene's blocking line by line: positions, hands, props, entrances and exits, and whether the POV can see or hear what's narrated",
+                  <Footprints size={13} />,
+                  'Blocking'
+                ]
+              ] as const
+            ).map(([cmd, title, icon, label]) => (
+              <button
+                key={cmd}
+                className="group/ai flex items-center gap-1.5 rounded-md px-1.5 py-[3px] text-[12px] font-medium text-muted hover:bg-raised hover:text-fg"
+                title={title}
+                onClick={() => void ask(cmd, path)}
+              >
+                <span className="text-accent/80 group-hover/ai:text-accent">{icon}</span>
+                <span className="hidden @[680px]:inline">{label}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {isMd && (
-          <>
-            <button className={`icon-btn ${indent ? 'text-accent' : ''}`} title="Book-style paragraph indents" onClick={() => {
-              localStorage.setItem('novelcoder.indent', indent ? '0' : '1')
-              setIndent(!indent)
-            }}>
+          <div className="flex items-center gap-0.5">
+            <button
+              className={`icon-btn h-7 w-7 ${indent ? 'bg-panel2 text-accent' : ''}`}
+              title="Book-style paragraph indents"
+              aria-pressed={indent}
+              onClick={() => {
+                localStorage.setItem('novelcoder.indent', indent ? '0' : '1')
+                setIndent(!indent)
+              }}
+            >
               <AlignLeft size={14} />
             </button>
-            <button className={`icon-btn ${focusMode ? 'text-accent' : ''}`} title="Focus mode (dims all but the current paragraph)" onClick={() => setFocusMode(!focusMode)}>
+            <button className={`icon-btn h-7 w-7 ${focusMode ? 'bg-panel2 text-accent' : ''}`} title="Focus mode (dims all but the current paragraph)" aria-pressed={focusMode} onClick={() => setFocusMode(!focusMode)}>
               <Eye size={14} />
             </button>
-          </>
+          </div>
         )}
-        <button className="icon-btn" title="Show in Explorer" onClick={() => void api.app.showInFolder(path)}>
-          <FolderOpen size={14} />
-        </button>
       </div>
 
       {conflict && (
@@ -261,8 +273,8 @@ function DocEditor({ path }: { path: string }) {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto px-8 pt-8" style={{ maxWidth: (settings?.editorWidth ?? 720) + 64, ['--prose-font' as string]: fontVar }}>
+      <div className="desk min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto px-10 pt-12" style={{ maxWidth: (settings?.editorWidth ?? 720) + 64, ['--prose-font' as string]: fontVar }}>
           {isScene && <SceneHeader data={data} setField={setField} pov={project.config.pov} characters={project.bible.filter((b) => b.kind === 'characters').map((b) => b.name)} />}
           {isBible && <BibleHeader data={data} setField={setField} />}
           {isMd && !isScene && !isBible && Object.keys(data).length > 0 && <GenericHeader data={data} setField={setField} />}
@@ -293,12 +305,17 @@ function DocEditor({ path }: { path: string }) {
           )}
         </div>
       </div>
-      <div className="flex h-7 shrink-0 items-center gap-3 border-t border-line px-4 text-[11.5px] text-faint">
-        <span>{path}</span>
+      <div className="flex h-8 shrink-0 items-center gap-4 border-t border-line px-3 text-[11.5px] text-faint">
+        <button className="flex items-center gap-1.5 rounded px-1 py-0.5 hover:text-muted" title={`Show in Explorer: ${path}`} onClick={() => void api.app.showInFolder(path)}>
+          <FolderOpen size={12} /> Show in folder
+        </button>
         <div className="flex-1" />
-        {selection && <span>{countWordsClient(selection)} selected</span>}
-        <span>{words.toLocaleString()} words</span>
-        <span>{dirty ? 'Saving…' : 'Saved'}</span>
+        {selection && <span className="text-muted">{countWordsClient(selection).toLocaleString()} selected</span>}
+        <span className="tabular-nums">{words.toLocaleString()} words</span>
+        <span className="flex items-center gap-1.5">
+          <span className={`h-1.5 w-1.5 rounded-full ${dirty ? 'bg-warn' : 'bg-ok/70'}`} />
+          {dirty ? 'Saving…' : 'Saved'}
+        </span>
       </div>
     </div>
   )
@@ -306,24 +323,51 @@ function DocEditor({ path }: { path: string }) {
 
 function SceneHeader({ data, setField, pov, characters }: { data: Record<string, unknown>; setField: (k: string, v: unknown) => void; pov: string; characters: string[] }) {
   const chars = Array.isArray(data.characters) ? (data.characters as string[]) : []
+  const [open, setOpen] = useState(() => localStorage.getItem('novelcoder.sceneDetails') === '1')
+  const toggle = () => {
+    localStorage.setItem('novelcoder.sceneDetails', open ? '0' : '1')
+    setOpen(!open)
+  }
+  const status = String(data.status ?? 'idea')
+  const facts: [ReactNode, string][] = [
+    [<User size={12} />, String(data.pov ?? '')],
+    [<MapPin size={12} />, String(data.location ?? '')],
+    [<Clock size={12} />, String(data.time ?? '')]
+  ].filter(([, v]) => v) as [ReactNode, string][]
   return (
-    <div className="mb-6 border-b border-line pb-4">
+    <div className="mb-8">
       <input
-        className="mb-3 w-full bg-transparent text-[26px] font-semibold tracking-tight outline-none placeholder:text-faint"
+        className="mb-2 w-full bg-transparent text-[34px] font-semibold leading-tight tracking-[-0.015em] outline-none placeholder:text-faint"
         style={{ fontFamily: 'var(--font-prose)' }}
         placeholder="Scene title"
         value={String(data.title ?? '')}
         onChange={(e) => setField('title', e.target.value)}
       />
-      <div className="grid grid-cols-[90px_1fr] items-center gap-x-3 gap-y-1.5 text-[12.5px]">
-        <label className="text-faint">Status</label>
-        <div className="flex gap-1">
-          {STATUSES.map((s) => (
-            <button key={s} onClick={() => setField('status', s)} className={`rounded-full border px-2.5 py-0.5 text-[11.5px] capitalize ${data.status === s ? 'border-accent bg-accent/15 text-fg' : 'border-line text-muted hover:text-fg'}`}>
-              {s}
-            </button>
-          ))}
-        </div>
+      {!open && data.summary ? <p className="mb-3 text-[15px] italic leading-relaxed text-muted" style={{ fontFamily: 'var(--font-prose)' }}>{String(data.summary)}</p> : null}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-muted">
+        <Dropdown<SceneStatus>
+          className="-ml-2"
+          value={status as SceneStatus}
+          onChange={(s) => setField('status', s)}
+          label={
+            <span className="flex items-center gap-1.5 capitalize text-fg">
+              <StatusPill status={status} /> {status}
+            </span>
+          }
+          options={STATUSES.map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1), icon: <StatusPill status={s} /> }))}
+        />
+        {facts.map(([icon, v], i) => (
+          <span key={i} className="flex items-center gap-1.5">
+            <span className="text-faint">{icon}</span>
+            {v}
+          </span>
+        ))}
+        <button className="ml-auto flex items-center gap-1 rounded-md px-1.5 py-0.5 text-faint hover:bg-panel2 hover:text-fg" aria-expanded={open} onClick={toggle}>
+          {open ? 'Hide details' : 'Scene details'} <ChevronDown size={13} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+      {open && (
+      <div className="anim-drop mt-4 grid grid-cols-[90px_1fr] items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-panel/70 p-4 text-[12.5px]">
         <label className="text-faint">POV</label>
         <input className="field py-0.5" list="pov-list" placeholder={pov} value={String(data.pov ?? '')} onChange={(e) => setField('pov', e.target.value || undefined)} />
         <datalist id="pov-list">
@@ -345,6 +389,8 @@ function SceneHeader({ data, setField, pov, characters }: { data: Record<string,
         <label className="self-start pt-1 text-faint">Summary</label>
         <textarea className="field resize-none py-1" rows={2} value={String(data.summary ?? '')} onChange={(e) => setField('summary', e.target.value || undefined)} />
       </div>
+      )}
+      <div className="mt-6 h-px" style={{ background: 'linear-gradient(90deg, var(--line-strong), transparent)' }} />
     </div>
   )
 }
@@ -357,9 +403,9 @@ function BibleHeader({ data, setField }: { data: Record<string, unknown>; setFie
   const keys = Array.from(new Set([...extra]))
   const [newKey, setNewKey] = useState('')
   return (
-    <div className="mb-6 border-b border-line pb-4">
+    <div className="mb-8 border-b border-line pb-5">
       <input
-        className="mb-3 w-full bg-transparent text-[26px] font-semibold tracking-tight outline-none"
+        className="mb-3 w-full bg-transparent text-[34px] font-semibold leading-tight tracking-[-0.015em] outline-none"
         style={{ fontFamily: 'var(--font-prose)' }}
         value={String(data.name ?? '')}
         onChange={(e) => setField('name', e.target.value)}

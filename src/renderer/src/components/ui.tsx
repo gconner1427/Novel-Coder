@@ -7,12 +7,18 @@ export function Toast() {
   const toast = useStore((s) => s.toast)
   if (!toast) return null
   return (
-    <div
-      className={`fixed bottom-10 left-1/2 z-50 -translate-x-1/2 rounded-lg border px-4 py-2 shadow-xl ${
-        toast.level === 'error' ? 'border-err/60 bg-panel2 text-err' : 'border-line bg-raised text-fg'
-      }`}
-    >
-      {toast.text}
+    <div className="pointer-events-none fixed bottom-12 left-1/2 z-50 -translate-x-1/2">
+      <div
+        key={toast.text}
+        role="status"
+        className={`anim-lift pointer-events-auto flex max-w-[560px] items-center gap-2.5 rounded-xl border px-4 py-2.5 text-[13px] ${
+          toast.level === 'error' ? 'border-err/40 bg-raised text-fg' : 'border-line-strong bg-raised text-fg'
+        }`}
+        style={{ boxShadow: 'var(--shadow-lg)' }}
+      >
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: toast.level === 'error' ? 'var(--err)' : 'var(--accent)' }} />
+        {toast.text}
+      </div>
     </div>
   )
 }
@@ -24,16 +30,22 @@ export function Modal({ title, onClose, children, width = 560, footer }: { title
     return () => window.removeEventListener('keydown', k)
   }, [onClose])
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-6" onMouseDown={onClose}>
-      <div className="flex max-h-full flex-col rounded-xl border border-line bg-panel shadow-2xl" style={{ width }} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-line px-5 py-3">
-          <h2 className="text-[15px] font-semibold">{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
+    <div className="anim-fade fixed inset-0 z-40 flex items-center justify-center p-6 backdrop-blur-[3px]" style={{ background: 'var(--scrim)' }} onMouseDown={onClose}>
+      <div
+        role="dialog"
+        aria-label={title}
+        className="anim-rise flex max-h-full flex-col overflow-hidden rounded-2xl border border-line-strong bg-panel"
+        style={{ width, boxShadow: 'var(--shadow-lg)' }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 pb-2 pt-5">
+          <h2 className="text-[17px] font-semibold tracking-[-0.01em]">{title}</h2>
+          <button className="icon-btn -mr-2" onClick={onClose} aria-label="Close">
             <X size={16} />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-2">{children}</div>
+        {footer && <div className="flex justify-end gap-2 border-t border-line bg-bg/40 px-6 py-3.5">{footer}</div>}
       </div>
     </div>
   )
@@ -78,25 +90,30 @@ export function Dropdown<T extends string>({
   const cur = options.find((o) => o.value === value)
   return (
     <div className={`relative no-drag ${className}`} ref={ref}>
-      <button className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-[12.5px] text-muted hover:bg-raised hover:text-fg" onClick={() => setOpen((v) => !v)}>
+      <button
+        className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-[12.5px] hover:bg-panel2 hover:text-fg ${open ? 'bg-panel2 text-fg' : 'text-muted'}`}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
         {label ?? (
           <>
             {cur?.icon}
             <span>{cur?.label ?? value}</span>
           </>
         )}
-        <ChevronDown size={13} className="opacity-60" />
+        <ChevronDown size={13} className={`opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <div
-          className={`absolute z-30 min-w-[220px] rounded-lg border border-line bg-raised p-1 shadow-xl ${align === 'right' ? 'right-0' : 'left-0'} ${
-            up ? 'bottom-full mb-1' : 'top-full mt-1'
+          className={`surface-pop absolute z-30 max-h-[60vh] min-w-[240px] overflow-y-auto rounded-xl p-1.5 ${up ? 'anim-lift' : 'anim-drop'} ${align === 'right' ? 'right-0' : 'left-0'} ${
+            up ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           }`}
+          style={{ boxShadow: 'var(--shadow-lg)' }}
         >
           {options.map((o) => (
             <button
               key={o.value}
-              className="flex w-full items-start gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-panel2"
+              className={`flex w-full items-start gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-panel2 ${o.value === value ? 'bg-accent/[0.07]' : ''}`}
               onClick={() => {
                 onChange(o.value)
                 setOpen(false)
@@ -137,16 +154,16 @@ export const ENGINE_LABEL: Record<EngineId, string> = { claude: 'Claude', codex:
 export function StatusPill({ status }: { status: string }) {
   const color: Record<string, string> = {
     idea: 'var(--faint)',
-    outlined: 'var(--warn)',
+    outlined: '#7f92c4',
     drafted: 'var(--accent)',
-    revised: 'var(--codex)',
+    revised: '#b08bd4',
     final: 'var(--ok)'
   }
   return <span className="inline-block h-2 w-2 shrink-0 rounded-full" title={status} style={{ background: color[status] ?? 'var(--faint)' }} />
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <div className="px-4 py-6 text-center text-[12.5px] text-faint">{children}</div>
+  return <div className="px-5 py-8 text-center text-[12.5px] leading-relaxed text-faint">{children}</div>
 }
 
 export function timeAgo(ts: number): string {

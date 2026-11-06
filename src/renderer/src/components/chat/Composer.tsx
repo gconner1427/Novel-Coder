@@ -200,9 +200,10 @@ export function Composer() {
   const effortList = EFFORTS[engine]
 
   return (
-    <div className="shrink-0 p-3 pt-1">
+    <div className="shrink-0 px-3 pb-3 pt-1">
       <div
-        className="relative rounded-xl border border-line bg-panel2 focus-within:border-accent/70"
+        className="relative rounded-2xl border border-line-strong bg-raised transition-[border-color,box-shadow] focus-within:border-accent/50 focus-within:shadow-[0_0_0_3px_var(--accent-soft),var(--shadow-md)]"
+        style={{ boxShadow: 'var(--shadow-md)' }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault()
@@ -210,11 +211,11 @@ export function Composer() {
         }}
       >
         {menu.length > 0 && (
-          <div className="absolute bottom-full left-0 right-0 mb-1 max-h-72 overflow-y-auto rounded-lg border border-line bg-raised p-1 shadow-xl">
+          <div className="surface-pop anim-lift absolute bottom-full left-0 right-0 mb-2 max-h-72 overflow-y-auto rounded-xl p-1.5">
             {menu.map((m, i) => (
               <button
                 key={m.key}
-                className={`flex w-full items-baseline gap-2 rounded-md px-2.5 py-1.5 text-left ${i === menuIdx ? 'bg-panel2' : ''}`}
+                className={`flex w-full items-baseline gap-2 rounded-lg px-2.5 py-1.5 text-left ${i === menuIdx ? 'bg-panel2' : ''}`}
                 onMouseEnter={() => setMenuIdx(i)}
                 onMouseDown={(e) => {
                   e.preventDefault()
@@ -323,11 +324,11 @@ export function Composer() {
             <Paperclip size={15} />
           </button>
           {busy && !draft.trim() ? (
-            <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fg text-bg" title="Stop (Esc)" onClick={() => void st().interrupt()}>
+            <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-fg text-bg" title="Stop (Esc)" onClick={() => void st().interrupt()}>
               <Square size={12} fill="currentColor" />
             </button>
           ) : (
-            <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-fg disabled:opacity-40" disabled={!draft.trim()} title="Send (Enter)" onClick={() => void submit()}>
+            <button className="btn-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border disabled:opacity-30 disabled:shadow-none" disabled={!draft.trim()} title="Send (Enter)" onClick={() => void submit()}>
               <ArrowUp size={16} />
             </button>
           )}

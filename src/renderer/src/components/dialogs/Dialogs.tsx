@@ -362,7 +362,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-faint">Accounts</h3>
+      <h3 className="mb-2 section-label">Accounts</h3>
       <div className="mb-5 space-y-2">
         {(['claude', 'codex'] as EngineId[]).map((e) => {
           const a = auth?.[e]
@@ -393,7 +393,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
         </p>
       </div>
 
-      <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-faint">Appearance</h3>
+      <h3 className="mb-2 section-label">Appearance</h3>
       <div className="mb-5 grid grid-cols-3 gap-3 text-[12.5px] text-muted">
         <label>
           Theme
@@ -419,7 +419,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
 
       {project && cfg && (
         <>
-          <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-faint">This novel</h3>
+          <h3 className="mb-2 section-label">This novel</h3>
           <div className="grid grid-cols-2 gap-3 text-[12.5px] text-muted">
             {(['title', 'author', 'genre', 'pov', 'tense'] as const).map((k) => (
               <label key={k} className="capitalize">
@@ -515,7 +515,7 @@ function DevicesSection() {
 
   return (
     <>
-      <h3 className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wider text-faint">Devices &amp; AI memory</h3>
+      <h3 className="mb-2 mt-5 section-label">Devices &amp; AI memory</h3>
       <div className="rounded-lg border border-line bg-panel2 p-3 text-[12.5px]" data-testid="devices">
         <p className="mb-2 text-muted">
           The AI's memory and your chats for this book are kept in the book's folder, so if it's in cloud storage they follow you to your other devices. Novel Coder saves them after each reply and loads them when you open the book.
@@ -577,7 +577,7 @@ function UpdatesSection() {
                   : `Version ${s.current}. Updates are checked each time Novel Coder opens.`
   return (
     <>
-      <h3 className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wider text-faint">Updates</h3>
+      <h3 className="mb-2 mt-5 section-label">Updates</h3>
       <div className="flex items-center gap-3 rounded-lg border border-line bg-panel2 p-3">
         <p className={`flex-1 text-[12.5px] ${s.state === 'error' ? 'text-err' : 'text-muted'}`} data-testid="update-line">
           {line}
@@ -637,7 +637,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
           </div>
         ))}
       </div>
-      <h3 className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wider text-faint">Shortcuts</h3>
+      <h3 className="mb-2 mt-5 section-label">Shortcuts</h3>
       <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-[12.5px]">
         {keys.map(([k, d]) => (
           <div key={k} className="flex gap-2">

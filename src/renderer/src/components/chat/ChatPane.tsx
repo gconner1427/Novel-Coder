@@ -81,10 +81,12 @@ export function ChatPane({ wide }: { wide: boolean }) {
       >
         <div className={wide ? 'mx-auto max-w-[820px]' : ''}>
           {empty ? (
-            <div className="flex flex-col items-center px-4 pt-16 text-center">
-              <Feather size={28} className="mb-3 text-accent" />
-              <h2 className="mb-1 text-[16px] font-semibold">{brainstorm ? "Let's find your story" : 'What are we writing today?'}</h2>
-              <p className="mb-5 max-w-[380px] text-[12.5px] text-faint">
+            <div className="anim-fade flex flex-col items-center px-4 pt-20 text-center">
+              <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-line-strong bg-raised" style={{ boxShadow: 'var(--shadow-md), 0 0 40px -6px var(--lamp)' }}>
+                <Feather size={22} className="text-accent" />
+              </span>
+              <h2 className="mb-1.5 text-[21px] font-semibold tracking-[-0.01em]" style={{ fontFamily: 'var(--font-prose)' }}>{brainstorm ? "Let's find your story" : 'What are we writing today?'}</h2>
+              <p className="mb-7 max-w-[360px] text-[12.5px] leading-relaxed text-faint">
                 {brainstorm ? (
                   <>
                     Brainstorm freely with {ENGINE_LABEL[engine]}. It keeps notes in <b>Ideas</b> on the right. When you're ready, click <b>Turn into a book</b> and everything carries over.
@@ -95,10 +97,15 @@ export function ChatPane({ wide }: { wide: boolean }) {
                   </>
                 )}
               </p>
-              <div className="grid w-full max-w-[380px] gap-2">
-                {starters.map((s) => (
-                  <button key={s.label} className="rounded-lg border border-line bg-panel2 px-3 py-2 text-left text-[12.5px] hover:border-accent" onClick={() => (s.text.startsWith('/') ? set({ draft: s.text }) : void sendToEngine(s.text))}>
-                    {s.label}
+              <div className="w-full max-w-[360px] overflow-hidden rounded-xl border border-line bg-panel2/60">
+                {starters.map((s, i) => (
+                  <button
+                    key={s.label}
+                    className={`group flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-[13px] text-muted hover:bg-raised hover:text-fg ${i ? 'border-t border-line' : ''}`}
+                    onClick={() => (s.text.startsWith('/') ? set({ draft: s.text }) : void sendToEngine(s.text))}
+                  >
+                    <span className="flex-1">{s.label}</span>
+                    <span className="text-[11px] text-faint opacity-0 transition-opacity group-hover:opacity-100">{s.text.startsWith('/') ? 'Fill in' : 'Ask'}</span>
                   </button>
                 ))}
               </div>
