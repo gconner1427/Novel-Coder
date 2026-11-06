@@ -203,6 +203,19 @@ export interface SessionSummary {
   engine: EngineId
 }
 
+export interface UpdateStatus {
+  state: 'idle' | 'unsupported' | 'checking' | 'none' | 'available' | 'downloading' | 'downloaded' | 'error'
+  /** The running version. */
+  current: string
+  /** The newer version, when there is one. */
+  version?: string
+  notes?: string
+  releaseDate?: string
+  percent?: number
+  checkedAt?: number
+  message?: string
+}
+
 export interface AuthStatus {
   claude: { installed: boolean; loggedIn: boolean; detail: string }
   codex: { installed: boolean; loggedIn: boolean; detail: string }

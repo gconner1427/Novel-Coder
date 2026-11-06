@@ -38,6 +38,7 @@ import { CodexEngine } from './engines/codexEngine'
 import { getAuthStatus, launchLogin } from './services/auth'
 import { deleteSession, expandCommand, listCommands, listReports, listSessions, loadSession, loadStats, recordWords, saveSession, streak } from './services/store'
 import { exportManuscript } from './services/exporter'
+import { checkForUpdates, downloadUpdate, getUpdateStatus, installUpdate, setupUpdates } from './services/updater'
 import { BrainstormStore, IDEAS_FILE, parseIdeas, transcriptMarkdown } from './services/brainstorm'
 
 // ---------------- app settings (userData) ----------------
@@ -149,6 +150,17 @@ function registerIpc() {
   handle('app:showInFolder', (rel: string) => shell.showItemInFolder(root ? resolveInside(root, rel) : rel))
   handle('app:openExternal', (url: string) => (/^https?:\/\//.test(url) ? shell.openExternal(url) : undefined))
   handle('app:version', () => app.getVersion())
+
+  // updates (GitHub releases)
+  handle('updates:status', () => getUpdateStatus())
+  handle('updates:check', () => checkForUpdates())
+  handle('updates:download', () => downloadUpdate())
+  handle('updates:install', () =>
+    installUpdate(() => {
+      engine?.close()
+      engine = null
+    })
+  )
 
   // project
   handle('project:open', (dir: string) => openProject(dir))
@@ -476,6 +488,7 @@ app.whenReady().then(() => {
   brainstorms = new BrainstormStore(path.join(app.getPath('userData'), 'brainstorms'))
   registerIpc()
   createWindow()
+  if (win) setupUpdates(win)
 })
 
 app.on('window-all-closed', () => {

@@ -9,6 +9,7 @@ import { StatusBar } from './components/StatusBar'
 import { Welcome } from './components/Welcome'
 import { Dialogs } from './components/dialogs/Dialogs'
 import { Toast } from './components/ui'
+import { UpdateBanner } from './components/UpdateBanner'
 import { BrainstormView } from './components/BrainstormView'
 
 export default function App() {
@@ -115,6 +116,7 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <TitleBar sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen((v) => !v)} />
+      <UpdateBanner />
       {brainstorm ? (
         <BrainstormView />
       ) : !project ? (

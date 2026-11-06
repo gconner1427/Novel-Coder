@@ -1,6 +1,6 @@
 {
   "name": "novel-coder",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An AI writing harness for novelists, powered by Claude Code and Codex.",
   "main": "out/main/index.js",
   "scripts": {
@@ -9,7 +9,7 @@
     "start": "electron-vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "dist": "electron-vite build && electron-builder --win --x64",
+    "dist": "electron-vite build && electron-builder --win --x64 --publish never",
     "icon": "electron scripts/make-icon.cjs"
   },
   "author": "Grant",
@@ -22,6 +22,7 @@
     "chokidar": "^6.0.0",
     "diff": "^9.0.0",
     "docx": "^9.15.2",
+    "electron-updater": "^6.8.11",
     "epub-gen-memory": "^1.1.2",
     "gray-matter": "^4.0.3",
     "isomorphic-git": "^1.44.10",

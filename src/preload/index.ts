@@ -71,6 +71,13 @@ const api = {
   sessions: { list: inv('sessions:list'), load: inv('sessions:load'), save: inv('sessions:save'), delete: inv('sessions:delete') },
   commands: { list: inv('commands:list'), expand: inv('commands:expand') },
   auth: { status: inv('auth:status'), login: inv('auth:login') },
+  updates: {
+    status: inv('updates:status'),
+    check: inv('updates:check'),
+    download: inv('updates:download'),
+    install: inv('updates:install'),
+    onStatus: (cb: (p: unknown) => void) => on('updates:status', cb)
+  },
   engine: {
     start: inv('engine:start'),
     send: inv('engine:send'),

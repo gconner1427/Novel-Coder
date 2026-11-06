@@ -21,7 +21,8 @@ import type {
   SessionSummary,
   SlashCommand,
   Snapshot,
-  StatsFile
+  StatsFile,
+  UpdateStatus
 } from '@shared/types'
 
 export interface AppSettings {
@@ -120,6 +121,13 @@ export interface NovelApi {
   }
   commands: { list(): Promise<SlashCommand[]>; expand(name: string, args: string): Promise<string | null> }
   auth: { status(): Promise<AuthStatus>; login(e: EngineId): Promise<void> }
+  updates: {
+    status(): Promise<UpdateStatus>
+    check(): Promise<UpdateStatus>
+    download(): Promise<void>
+    install(): Promise<void>
+    onStatus(cb: (s: UpdateStatus) => void): () => void
+  }
   engine: {
     start(s: EngineSettings, resumeSessionId?: string): Promise<void>
     send(m: SendOptions): Promise<void>

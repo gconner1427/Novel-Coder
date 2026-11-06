@@ -3,6 +3,7 @@ import { FileDown, FolderOpen, LogIn, CheckCircle2, AlertCircle, BookOpen, FileT
 import { api, type ScaffoldOptions } from '../../lib/api'
 import { useStore } from '../../store'
 import { Modal } from '../ui'
+import { useUpdateStatus } from '../UpdateBanner'
 import type { EngineId, ExportFormat, NovelConfig } from '@shared/types'
 
 export function Dialogs() {
@@ -457,8 +458,67 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
           </div>
         </>
       )}
+      <UpdatesSection />
       <p className="mt-5 text-[11px] text-faint">Novel Coder {version}</p>
     </Modal>
+  )
+}
+
+function UpdatesSection() {
+  const s = useUpdateStatus()
+  const [busy, setBusy] = useState(false)
+  if (!s) return null
+  const line =
+    s.state === 'unsupported'
+      ? s.message
+      : s.state === 'checking'
+        ? 'Checking GitHub for a new release…'
+        : s.state === 'none'
+          ? `You're up to date (version ${s.current}).${s.checkedAt ? ` Checked ${new Date(s.checkedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.` : ''}`
+          : s.state === 'available'
+            ? `Version ${s.version} is available. You have ${s.current}.`
+            : s.state === 'downloading'
+              ? `Downloading version ${s.version}… ${s.percent ?? 0}%`
+              : s.state === 'downloaded'
+                ? `Version ${s.version} is downloaded. Restart to finish updating.`
+                : s.state === 'error'
+                  ? `Couldn't update: ${s.message}`
+                  : `Version ${s.current}. Updates are checked each time Novel Coder opens.`
+  return (
+    <>
+      <h3 className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wider text-faint">Updates</h3>
+      <div className="flex items-center gap-3 rounded-lg border border-line bg-panel2 p-3">
+        <p className={`flex-1 text-[12.5px] ${s.state === 'error' ? 'text-err' : 'text-muted'}`} data-testid="update-line">
+          {line}
+        </p>
+        {s.state === 'available' && (
+          <button className="btn btn-primary text-[12.5px]" onClick={() => void api.updates.download()}>
+            <FileDown size={13} /> Update now
+          </button>
+        )}
+        {s.state === 'downloaded' && (
+          <button className="btn btn-primary text-[12.5px]" onClick={() => void api.updates.install()}>
+            Restart and update
+          </button>
+        )}
+        {!['available', 'downloading', 'downloaded', 'unsupported'].includes(s.state) && (
+          <button
+            className="btn text-[12.5px]"
+            disabled={busy || s.state === 'checking'}
+            onClick={async () => {
+              setBusy(true)
+              try {
+                await api.updates.check()
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            Check for updates
+          </button>
+        )}
+      </div>
+    </>
   )
 }
 

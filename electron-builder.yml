@@ -31,3 +31,9 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: Novel Coder
   artifactName: Novel-Coder-Setup-${version}.exe
+# In-app updates read releases from this public repo (electron-updater).
+publish:
+  provider: github
+  owner: gconner1427
+  repo: Novel-Coder
+  releaseType: release
