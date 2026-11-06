@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   BookText,
+  BookOpen,
   Users,
   ListTree,
   FolderTree,
@@ -184,6 +185,9 @@ function ManuscriptPanel() {
         <button className="btn flex-1 justify-center py-1 text-[12px]" onClick={() => setAdding('__chapter')}>
           <Plus size={13} /> Chapter
         </button>
+        <button className="btn py-1 text-[12px]" title="Read the whole manuscript" onClick={() => openTab({ kind: 'read' })}>
+          <BookOpen size={13} /> Read
+        </button>
         <button className="btn py-1 text-[12px]" title="Corkboard" onClick={() => openTab({ kind: 'corkboard' })}>
           <LayoutGrid size={13} />
         </button>
@@ -221,6 +225,9 @@ function ManuscriptPanel() {
               }}
               actions={
                 <>
+                  <MiniBtn title="Read this chapter" onClick={() => openTab({ kind: 'read', chapter: ch.folder })}>
+                    <BookOpen size={13} />
+                  </MiniBtn>
                   <MiniBtn title="Add scene" onClick={() => setAdding(ch.folder)}>
                     <Plus size={13} />
                   </MiniBtn>

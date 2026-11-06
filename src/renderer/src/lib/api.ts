@@ -15,6 +15,7 @@ import type {
   PermissionResponse,
   ProjectSnapshot,
   ShelfBook,
+  ManuscriptText,
   SceneInfo,
   SceneMeta,
   SendOptions,
@@ -96,6 +97,8 @@ export interface NovelApi {
     current(): Promise<ProjectSnapshot | null>
     /** Recently opened books, newest first, summarised for the Welcome shelf. */
     shelf(): Promise<ShelfBook[]>
+    /** The whole manuscript, or one chapter by folder, compiled for reading. */
+    readManuscript(chapter?: string): Promise<ManuscriptText>
     close(): Promise<void>
     readFile(rel: string): Promise<string>
     writeFile(rel: string, text: string): Promise<void>

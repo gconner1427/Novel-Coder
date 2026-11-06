@@ -13,6 +13,7 @@ import {
   loadConfig,
   loadProject,
   shelfBook,
+  readManuscript,
   readScene,
   readText,
   resolveInside,
@@ -221,6 +222,7 @@ function registerIpc() {
   handle('project:create', async (dir: string, opts: CreateOptions) => openProject(createProject(dir, opts)))
   handle('project:current', () => (root ? loadProject(root) : null))
   handle('project:shelf', () => getSettings().recent.map(shelfBook))
+  handle('project:readManuscript', (chapter?: string) => readManuscript(requireRoot(), chapter))
   handle('project:close', async () => {
     engine?.close()
     engine = null

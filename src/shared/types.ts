@@ -40,6 +40,18 @@ export interface BookInfo {
   premise?: string
 }
 
+/** A chapter or the whole manuscript, compiled for reading, keeping track of which scene each passage came from. */
+export interface ManuscriptText {
+  title: string
+  author: string
+  chapters: {
+    folder: string
+    title: string
+    words: number
+    scenes: { path: string; title: string; words: number; body: string }[]
+  }[]
+}
+
 /** What the Welcome shelf shows for a recently opened book (read without opening it). */
 export interface ShelfBook {
   root: string

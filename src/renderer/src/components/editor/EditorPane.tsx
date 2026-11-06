@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
-import { X, FileText, BarChart3, LayoutGrid, Sparkles, Eye, AlignLeft, MessageSquareQuote, ShieldCheck, Wand2, FolderOpen, Footprints, User, MapPin, Clock, ChevronDown } from 'lucide-react'
+import { X, FileText, BarChart3, LayoutGrid, Sparkles, Eye, AlignLeft, MessageSquareQuote, ShieldCheck, Wand2, FolderOpen, Footprints, User, MapPin, Clock, ChevronDown, BookOpen } from 'lucide-react'
 import { Dropdown, StatusPill, docTitle } from '../ui'
 import { api } from '../../lib/api'
 import { useStore, tabKey, type Tab } from '../../store'
 import { ProseEditor, FormatBar, countWordsClient } from './ProseEditor'
 import { Progress } from './Progress'
 import { Corkboard } from './Corkboard'
+import { ReadingView } from './ReadingView'
 import type { SceneStatus } from '@shared/types'
 
-function tabLabel(t: Tab, titleFor: (p: string) => string) {
+function tabLabel(t: Tab, titleFor: (p: string) => string, chapterTitle: (folder: string) => string) {
   if (t.kind === 'file') return titleFor(t.path)
+  if (t.kind === 'read') return t.chapter ? `Read: ${chapterTitle(t.chapter)}` : 'Manuscript'
   return t.kind === 'progress' ? 'Progress' : t.kind === 'corkboard' ? 'Corkboard' : t.kind === 'settings' ? 'Settings' : 'Welcome'
 }
 
@@ -22,6 +24,7 @@ export function EditorPane() {
   const project = useStore((s) => s.project)!
 
   const titleFor = (p: string) => docTitle(project, p)
+  const chapterTitle = (folder: string) => project.chapters.find((c) => c.folder === folder)?.title ?? 'Chapter'
   const cur = tabs.find((t) => tabKey(t) === active)
 
   return (
@@ -40,8 +43,8 @@ export function EditorPane() {
               className={`group relative flex max-w-[220px] cursor-pointer items-center gap-1.5 px-2.5 text-[12.5px] transition-colors ${on ? 'text-fg' : 'text-faint hover:text-muted'}`}
             >
               {on && <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-accent" />}
-              {t.kind === 'progress' ? <BarChart3 size={13} /> : t.kind === 'corkboard' ? <LayoutGrid size={13} /> : <FileText size={13} className={on ? 'text-accent' : ''} />}
-              <span className={`truncate ${on ? 'font-medium' : ''}`}>{tabLabel(t, titleFor)}</span>
+              {t.kind === 'progress' ? <BarChart3 size={13} /> : t.kind === 'corkboard' ? <LayoutGrid size={13} /> : t.kind === 'read' ? <BookOpen size={13} className={on ? 'text-accent' : ''} /> : <FileText size={13} className={on ? 'text-accent' : ''} />}
+              <span className={`truncate ${on ? 'font-medium' : ''}`}>{tabLabel(t, titleFor, chapterTitle)}</span>
               <button
                 aria-label="Close tab"
                 className="ml-0.5 rounded p-0.5 opacity-0 hover:bg-raised group-hover:opacity-100"
@@ -61,6 +64,7 @@ export function EditorPane() {
         {cur?.kind === 'file' && <DocEditor key={cur.path} path={cur.path} />}
         {cur?.kind === 'progress' && <Progress />}
         {cur?.kind === 'corkboard' && <Corkboard />}
+        {cur?.kind === 'read' && <ReadingView key={cur.chapter ?? '*'} chapter={cur.chapter} />}
       </div>
     </div>
   )

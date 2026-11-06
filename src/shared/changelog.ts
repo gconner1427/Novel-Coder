@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.3.1',
+    summary: 'Read your chapters and your whole manuscript as one continuous text.',
+    items: [
+      {
+        title: 'Read a whole chapter or the whole book',
+        body:
+          "Click Read at the top of the Manuscript panel to read the whole manuscript as one book, with a title page, chapter headings and scene breaks. To read one chapter, hover over it in the sidebar and click its book icon. It uses your editor font, page width and paragraph indents. Contents jumps to any chapter, and each chapter ends with links to the previous and next one. The text stays up to date as you or the AI make changes. Double-click any passage to open that scene for editing, or click the T button to show where each scene starts."
+      }
+    ]
+  },
+  {
     version: '0.3.0',
     summary: 'A new look: Dark Studio.',
     items: [

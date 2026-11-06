@@ -14,6 +14,7 @@ import {
   loadProject,
   readScene,
   resolveInside,
+  readManuscript,
   scaffoldProject,
   shelfBook,
   searchBible,
@@ -143,5 +144,31 @@ describe('shelf', () => {
   it('marks a moved or deleted folder instead of throwing', () => {
     const b = shelfBook(path.join(os.tmpdir(), 'novel-shelf-does-not-exist', 'Gone Book'))
     expect(b).toMatchObject({ exists: false, title: 'Gone Book', words: 0 })
+  })
+})
+
+describe('reading view', () => {
+  it('compiles chapters scene by scene, in order, skipping empty scenes', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'novel-read-'))
+    const root = path.join(dir, 'Read Book')
+    scaffoldProject(root, { title: 'Read Book', author: 'Ada Writer', genre: 'Fantasy', premise: 'x' })
+    writeScene(root, 'manuscript/01-chapter-one/01-start.md', { title: 'Start', status: 'drafted' }, 'First scene.')
+    writeScene(root, 'manuscript/01-chapter-one/02-next.md', { title: 'Next', status: 'drafted' }, 'Second scene.')
+    const two = createScene(root, createChapter(root, 'Chapter Two'), 'Later')
+    writeScene(root, two, { title: 'Later', status: 'drafted' }, 'Third scene.')
+
+    const all = readManuscript(root)
+    expect(all).toMatchObject({ title: 'Read Book', author: 'Ada Writer' })
+    expect(all.chapters.map((c) => c.title)).toEqual(['Chapter One', 'Chapter Two'])
+    // The scaffold's empty opening scene is left out; ours keep their order and paths.
+    expect(all.chapters[0].scenes.map((s) => [s.title, s.body])).toEqual([
+      ['Start', 'First scene.'],
+      ['Next', 'Second scene.']
+    ])
+    expect(all.chapters[1].scenes[0]).toMatchObject({ path: two, title: 'Later', body: 'Third scene.' })
+
+    const one = readManuscript(root, all.chapters[1].folder)
+    expect(one.chapters).toHaveLength(1)
+    expect(one.chapters[0].title).toBe('Chapter Two')
   })
 })

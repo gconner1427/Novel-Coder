@@ -171,6 +171,24 @@ describe.skipIf(!E2E)('Novel Coder app', () => {
     }, 300000)
   }
 
+  it('reads the whole manuscript and a single chapter, and jumps back to edit a scene', async () => {
+    await page.click('button[title="Manuscript"]')
+    await page.click('button[title="Read the whole manuscript"]')
+    const view = page.getByTestId('reading-view')
+    await view.waitFor({ timeout: 10000 })
+    await expect.poll(() => view.innerText()).toContain('lanterns woke')
+    expect(await view.innerText()).toContain('The Lantern Orchard') // title page
+    await page.screenshot({ path: path.join(shots, '06b-read-manuscript.png') })
+    // One chapter, from the chapter row's read button.
+    await page.locator('text=Chapter One').first().hover()
+    await page.click('button[title="Read this chapter"]')
+    await expect.poll(() => page.locator('[role=tab][aria-selected=true]').innerText()).toContain('Read: Chapter One')
+    // Double-click a passage to edit its scene.
+    await page.getByTestId('reading-view').locator('p', { hasText: 'lanterns woke' }).dblclick()
+    await page.waitForSelector('.ProseMirror')
+    expect(await page.locator('[role=tab][aria-selected=true]').innerText()).toContain('Dusk Harvest')
+  })
+
   // Last: it closes the book.
   it('goes back to the library without losing what was just typed', async () => {
     await page.click('button[title="Manuscript"]')

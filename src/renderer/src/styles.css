@@ -418,6 +418,61 @@ select {
   opacity: 1;
 }
 
+/* ---------- reading view: compiled chapters set as book text ---------- */
+.reading {
+  font-family: var(--prose-font, var(--font-prose));
+  font-weight: var(--prose-weight, 400);
+  font-size: 18.5px;
+  line-height: 1.8;
+  font-optical-sizing: auto;
+  color: color-mix(in srgb, var(--fg) 94%, var(--accent) 6%);
+}
+.reading p {
+  margin: 0 0 0.9em;
+}
+.reading.indent p {
+  margin: 0;
+  text-indent: 1.6em;
+}
+.reading.indent p:first-child {
+  text-indent: 0;
+}
+.reading h1,
+.reading h2,
+.reading h3 {
+  font-family: var(--font-prose);
+  font-weight: 600;
+  margin: 1.2em 0 0.5em;
+  text-indent: 0;
+}
+.reading blockquote {
+  border-left: 2px solid var(--line-strong);
+  margin: 0 0 1em;
+  padding-left: 1em;
+  color: var(--muted);
+}
+.reading ul,
+.reading ol {
+  padding-left: 1.4em;
+  margin: 0 0 1em;
+}
+.reading ul {
+  list-style: disc;
+}
+.reading ol {
+  list-style: decimal;
+}
+.reading hr {
+  border: none;
+  text-align: center;
+  margin: 1.5em 0;
+}
+.reading hr::after {
+  content: '* * *';
+  color: var(--faint);
+  letter-spacing: 0.4em;
+}
+
 /* ---------- chat markdown ---------- */
 .md {
   line-height: 1.6;

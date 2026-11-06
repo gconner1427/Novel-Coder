@@ -14,7 +14,8 @@ import type {
   SceneStatus,
   SeriesConfig,
   SeriesInfo,
-  ShelfBook
+  ShelfBook,
+  ManuscriptText
 } from './types'
 
 export const CONFIG_FILE = 'novel.json'
@@ -422,6 +423,25 @@ export function compileManuscript(root: string, opts: { sceneBreak?: string } = 
       title: ch.title,
       text: ch.scenes.map((s) => readScene(root, s.path).body.trim()).filter(Boolean).join(brk)
     }))
+  }
+}
+
+/** The manuscript (or one chapter, by folder) in reading order, scene by scene. Empty scenes are left out. */
+export function readManuscript(root: string, chapterFolder?: string): ManuscriptText {
+  const cfg = loadConfig(root)
+  return {
+    title: cfg.title,
+    author: cfg.author,
+    chapters: listChapters(root)
+      .filter((ch) => !chapterFolder || ch.folder === chapterFolder)
+      .map((ch) => ({
+        folder: ch.folder,
+        title: ch.title,
+        words: ch.words,
+        scenes: ch.scenes
+          .map((s) => ({ path: s.path, title: s.title, words: s.words, body: readScene(root, s.path).body.trim() }))
+          .filter((s) => s.body)
+      }))
   }
 }
 

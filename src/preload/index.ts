@@ -29,6 +29,7 @@ const api = {
     create: inv('project:create'),
     current: inv('project:current'),
     shelf: inv('project:shelf'),
+    readManuscript: inv('project:readManuscript'),
     close: inv('project:close'),
     readFile: inv('project:readFile'),
     writeFile: inv('project:writeFile'),
