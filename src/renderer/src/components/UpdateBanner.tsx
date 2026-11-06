@@ -55,7 +55,7 @@ export function UpdateBanner() {
       {s.state === 'downloaded' && (
         <>
           <span className="flex-1">
-            <b>Novel Coder {s.version}</b> is ready. Restart to finish updating; your work is saved.
+            <b>Novel Coder {s.version}</b> is downloaded. It installs when you choose Restart and update; your work is saved first.
           </span>
           <button className="btn btn-primary py-1 text-[12.5px]" onClick={() => void api.updates.install()}>
             <RefreshCw size={13} /> Restart and update

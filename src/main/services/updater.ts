@@ -30,8 +30,11 @@ export function setupUpdates(window: BrowserWindow) {
     set({ state: 'unsupported', message: 'Updates are checked in the installed app.' })
     return
   }
+  // Nothing installs on its own: the user starts the download, and the update is only
+  // installed when they click "Restart and update". (Installing on quit would also run the
+  // installer, which closes any other open Novel Coder windows.)
   autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.autoInstallOnAppQuit = false
   autoUpdater.allowPrerelease = false
   autoUpdater.on('checking-for-update', () => set({ state: 'checking', message: undefined }))
   autoUpdater.on('update-available', (info) =>
