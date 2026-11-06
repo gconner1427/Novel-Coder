@@ -1,5 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import fs from 'node:fs'
+import os from 'node:os'
+import crypto from 'node:crypto'
 import path from 'node:path'
 import { watch, type FSWatcher } from 'chokidar'
 import matter from 'gray-matter'
@@ -38,6 +40,7 @@ import { CodexEngine } from './engines/codexEngine'
 import { getAuthStatus, launchLogin } from './services/auth'
 import { deleteSession, expandCommand, listCommands, listReports, listSessions, loadSession, loadStats, recordWords, saveSession, streak } from './services/store'
 import { exportManuscript } from './services/exporter'
+import { syncAi, syncStatus, type SyncDirection, type SyncEnv } from './services/aisync'
 import { checkForUpdates, downloadUpdate, getUpdateStatus, installUpdate, setupUpdates } from './services/updater'
 import { BrainstormStore, IDEAS_FILE, parseIdeas, transcriptMarkdown } from './services/brainstorm'
 
@@ -54,6 +57,8 @@ interface AppSettings {
   editorWidth: number
   /** The version whose What's new pop-up the user has seen. */
   lastSeenVersion?: string
+  /** Identifies this device in a book's .novel/ai manifest. */
+  deviceId?: string
 }
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json')
 function getSettings(): AppSettings {
@@ -86,6 +91,45 @@ const requireRoot = () => {
   return root
 }
 
+// ---------------- AI memory and chats, kept in the book so they follow it between devices ----------------
+
+function syncEnv(): SyncEnv {
+  let { deviceId } = getSettings()
+  if (!deviceId) deviceId = setSettings({ deviceId: crypto.randomUUID() }).deviceId!
+  return {
+    claudeHome: process.env.CLAUDE_CONFIG_DIR ?? path.join(os.homedir(), '.claude'),
+    codexHome: process.env.CODEX_HOME ?? path.join(os.homedir(), '.codex'),
+    stateFile: path.join(app.getPath('userData'), 'ai-sync-state.json'),
+    deviceId,
+    deviceName: os.hostname()
+  }
+}
+
+/** Sync a book's AI memory and chats; tells the window when anything arrived from another device. */
+function runSync(dir: string, direction: SyncDirection, manual = false) {
+  try {
+    const result = syncAi(dir, syncEnv(), direction)
+    const loaded = result.loaded.chats + result.loaded.memory + result.loaded.removed
+    if (manual || loaded > 0) send('aisync:result', { result, manual })
+    return result
+  } catch (e) {
+    console.error('[aisync]', e)
+    send('aisync:result', { error: (e as Error).message, manual })
+    if (manual) throw e
+    return null
+  }
+}
+
+let saveTimer: NodeJS.Timeout | null = null
+/** Save shortly after each AI reply (the engine has finished writing its transcript by then). */
+function scheduleSave() {
+  if (saveTimer) clearTimeout(saveTimer)
+  const dir = root
+  saveTimer = setTimeout(() => {
+    if (dir && dir === root) runSync(dir, 'save')
+  }, 3000)
+}
+
 let changeTimer: NodeJS.Timeout | null = null
 function projectChanged() {
   if (changeTimer) clearTimeout(changeTimer)
@@ -101,14 +145,17 @@ async function openProject(dir: string) {
   if (!isNovelProject(dir)) throw new Error('That folder is not a Novel Coder project (no novel.json). Use "New Novel" instead.')
   engine?.close()
   engine = null
+  if (root && path.resolve(root) !== path.resolve(dir)) runSync(root, 'save')
   await watcher?.close()
   root = dir
   brainstorm = null
   syncAgentInstructions(dir)
+  // Bring in memory and chats saved on other devices before any chat resumes.
+  runSync(dir, 'both')
   const seriesRoot = findSeriesRoot(dir)
   watcher = watch(seriesRoot ?? dir, {
     ignoreInitial: true,
-    ignored: (p: string) => /[\\/](node_modules|\.git|exports)([\\/]|$)/.test(p) || /[\\/]\.novel[\\/](history|sessions)/.test(p),
+    ignored: (p: string) => /[\\/](node_modules|\.git|exports)([\\/]|$)/.test(p) || /[\\/]\.novel[\\/](history|sessions|ai)/.test(p),
     awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 }
   })
   watcher.on('all', (_ev, file) => {
@@ -174,6 +221,7 @@ function registerIpc() {
   handle('project:close', async () => {
     engine?.close()
     engine = null
+    if (root) runSync(root, 'save')
     await watcher?.close()
     root = null
     brainstorm = null
@@ -345,6 +393,11 @@ function registerIpc() {
   handle('sessions:delete', (id: string) => deleteSession(requireRoot(), id))
   handle('commands:list', () => listCommands(root))
   handle('commands:expand', (name: string, args: string) => expandCommand(root, name, args))
+  // AI memory and chats across devices
+  handle('aisync:status', () => (root ? syncStatus(root, syncEnv()) : null))
+  handle('aisync:save', () => runSync(requireRoot(), 'save', true))
+  handle('aisync:load', () => runSync(requireRoot(), 'load', true))
+
   handle('auth:status', () => getAuthStatus())
   handle('auth:login', (e: 'claude' | 'codex') => launchLogin(e))
 
@@ -353,7 +406,10 @@ function registerIpc() {
     const cwd = root ?? brainstorm?.dir
     if (!cwd) throw new Error('Open a novel or start a brainstorm first')
     engine?.close()
-    const emit = (ev: EngineEvent) => send('engine:event', { engine: settings.engine, ev })
+    const emit = (ev: EngineEvent) => {
+      send('engine:event', { engine: settings.engine, ev })
+      if (ev.type === 'done' && root) scheduleSave()
+    }
     const seriesRoot = root ? findSeriesRoot(root) : null
     const opts = {
       root: cwd,
@@ -498,6 +554,7 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   engine?.close()
+  if (root) runSync(root, 'save')
   void watcher?.close()
   app.quit()
 })

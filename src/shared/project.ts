@@ -644,8 +644,22 @@ collaborator: co-writer, developmental editor, line editor and continuity checke
 ## Author's own instructions
 ${author}
 ${seriesText}`
-  writeText(path.join(root, 'CLAUDE.md'), text)
-  writeText(path.join(root, 'AGENTS.md'), text)
+  // Memory travels with the book in .novel/ai (Novel Coder syncs it between devices).
+  // Claude keeps its own memory notes, which Novel Coder mirrors there; Codex reads and adds to the same notes.
+  const claudeMemory = `
+## Novel Coder files
+Don't edit \`.novel/ai/\` yourself. Novel Coder copies your memory and chats there so they follow the author to their other devices.
+`
+  const codexMemory = `
+## Your memory for this book
+Notes about this author and this book, shared with the other AI the author uses, are kept in \`.novel/ai/memory/\`.
+- At the start of each conversation, read \`.novel/ai/memory/MEMORY.md\` (the index) and the notes it lists that are relevant, and follow them.
+- When you learn something that should still matter in a future conversation (the author's preferences and corrections, decisions about the story, facts they told you, ideas they rejected), save it as one short note per fact: a file in \`.novel/ai/memory/\` with YAML frontmatter (\`name\`, \`description\`, \`metadata.type\`: user, feedback, project or reference) and the fact in the body. Add a one-line link to it in MEMORY.md.
+- Update or delete notes that turn out to be wrong. Don't save what the manuscript or story bible already records.
+- Don't touch \`.novel/ai/chats/\` or \`.novel/ai/manifest.json\`.
+`
+  writeText(path.join(root, 'CLAUDE.md'), text + claudeMemory)
+  writeText(path.join(root, 'AGENTS.md'), text + codexMemory)
 }
 
 function seriesInstructions(root: string, cfg: NovelConfig): string {

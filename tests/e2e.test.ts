@@ -120,6 +120,17 @@ describe.skipIf(!E2E)('Novel Coder app', () => {
     await page.setViewportSize({ width: 1500, height: 920 })
   })
 
+  it('shows Devices & AI memory in Settings and saves to the book', async () => {
+    await page.click('button[title^="Settings"]')
+    const box = page.getByTestId('devices')
+    await box.waitFor({ timeout: 5000 })
+    expect(await box.innerText()).toContain(os.hostname())
+    await box.locator('button:has-text("Save now")').click()
+    await page.waitForSelector('text=/Saved .* to the book|Everything was already saved/', { timeout: 10000 })
+    expect(fs.existsSync(path.join(root, '.novel', 'ai', 'manifest.json'))).toBe(true)
+    await page.keyboard.press('Escape')
+  })
+
   it('switches engines with the toggle', async () => {
     await page.click('[role=radio]:has-text("Codex")')
     expect(await page.locator('[role=radio][aria-checked=true]').innerText()).toContain('Codex')

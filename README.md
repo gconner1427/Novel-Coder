@@ -57,6 +57,18 @@ If you already use Claude Code or the Codex CLI on this PC, you're already signe
 - **Progress:** daily word goal, streak, a 30-day chart, a finish estimate, and per-chapter counts.
 - **Export:** DOCX (standard manuscript format), EPUB, PDF and Markdown.
 
+## Working on more than one device
+
+Keep your books in cloud storage (OneDrive, Dropbox, Google Drive, iCloud) and they follow you between computers. Since 0.2.0, so do the AI's memory and your chats: Novel Coder keeps them in each book's `.novel/ai` folder.
+
+- After every AI reply, Novel Coder saves the chat and the AI's memory notes for the book into `.novel/ai`.
+- When you open the book on another computer, it loads them, so the AI remembers what it learned about you and the book, and your chats resume with their full context. This works even if the book is at a different path there.
+- If a chat's engine session can't be resumed on the new computer, Novel Coder continues it from the saved conversation instead.
+- **Settings → Devices & AI memory** shows what was saved and where, and has **Save now**, **Load now** and **Open the AI's memory**.
+- Claude and Codex share the same memory notes for each book.
+
+Let your cloud storage finish syncing before you switch computers, and avoid chatting in the same book on two computers at the same moment.
+
 ## A novel project on disk
 
 ```
@@ -67,6 +79,7 @@ My Novel/
   bible/characters|locations|lore/*.md, bible/timeline.md, bible/style-guide.md
   outline/outline.md, outline/beats.md, notes/
   .novel/             sessions, stats, reports, custom commands, snapshots
+  .novel/ai/          the AI's memory notes and chat transcripts (follow the book between devices)
 ```
 
 ## Develop

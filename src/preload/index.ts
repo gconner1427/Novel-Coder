@@ -71,6 +71,12 @@ const api = {
   sessions: { list: inv('sessions:list'), load: inv('sessions:load'), save: inv('sessions:save'), delete: inv('sessions:delete') },
   commands: { list: inv('commands:list'), expand: inv('commands:expand') },
   auth: { status: inv('auth:status'), login: inv('auth:login') },
+  aisync: {
+    status: inv('aisync:status'),
+    save: inv('aisync:save'),
+    load: inv('aisync:load'),
+    onResult: (cb: (p: unknown) => void) => on('aisync:result', cb)
+  },
   updates: {
     status: inv('updates:status'),
     check: inv('updates:check'),

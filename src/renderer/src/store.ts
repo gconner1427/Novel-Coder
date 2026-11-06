@@ -81,7 +81,7 @@ interface State {
   switchEngine: (e: EngineId) => Promise<void>
   setMode: (m: PermissionMode) => Promise<void>
   setModel: (m: string) => Promise<void>
-  sendToEngine: (text: string, opts?: { images?: string[]; display?: string }) => Promise<void>
+  sendToEngine: (text: string, opts?: { images?: string[]; display?: string; resend?: boolean }) => Promise<void>
   interrupt: () => Promise<void>
   onEngineEvent: (engine: EngineId, ev: EngineEvent) => void
   pushNotice: (text: string, level?: 'info' | 'error') => void
@@ -129,6 +129,14 @@ function transcriptForHandoff(items: ChatItem[]): string {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * The message that started a resumed chat. If the engine can't find that chat on this device (for
+ * example it was started on another computer and its transcript didn't come across), we start a fresh
+ * session, hand over the saved conversation and resend this message, once.
+ */
+let pendingResume: { engine: EngineId; text: string; images?: string[]; display?: string } | null = null
+const RESUME_FAILED = /no conversation found|conversation not found|session not found|thread not found|could not find|couldn't find|no rollout|does not exist|unknown (thread|session)|failed to (load|resume)|no such (thread|session)/i
 
 export const useStore = create<State>((set, get) => ({
   settings: null,
@@ -328,6 +336,7 @@ export const useStore = create<State>((set, get) => ({
     try {
       if (st.started !== engine) {
         const resumeId = st.session.engineSessions[engine]
+        pendingResume = resumeId ? { engine, text, images: opts.images, display: opts.display } : null
         await api.engine.start({ engine, model: st.prefs[engine].model, permissionMode: st.mode, effort: st.prefs[engine].effort || undefined }, resumeId)
         set({ started: engine })
       }
@@ -342,7 +351,9 @@ export const useStore = create<State>((set, get) => ({
       set({ handoff: null })
     }
     const session = get().session
-    const items: ChatItem[] = [...session.items, { kind: 'user', id: uid(), text: opts.display ?? text, images: opts.images, engine, ts: Date.now() }]
+    const items: ChatItem[] = opts.resend
+      ? session.items
+      : [...session.items, { kind: 'user', id: uid(), text: opts.display ?? text, images: opts.images, engine, ts: Date.now() }]
     const title = session.title === 'New conversation' ? (opts.display ?? text).replace(/\s+/g, ' ').slice(0, 70) : session.title
     set({ session: { ...session, items, title, updated: Date.now() }, busy: true })
     get().saveSession()
@@ -386,6 +397,26 @@ export const useStore = create<State>((set, get) => ({
 
   onEngineEvent: (engine, ev) => {
     if (engine !== get().engine && ev.type !== 'session') return
+    // A resumed chat that this device doesn't have: carry on from the saved conversation instead.
+    const failText = ev.type === 'error' ? ev.message : ev.type === 'done' && ev.isError ? ev.result ?? '' : ''
+    if (pendingResume && pendingResume.engine === engine && failText && RESUME_FAILED.test(failText)) {
+      const retry = pendingResume
+      pendingResume = null
+      const cur = get().session
+      const history = cur.items.slice(0, -1) // everything before the message being resent
+      set({
+        started: null,
+        busy: false,
+        handoff: transcriptForHandoff(history) || null,
+        session: { ...cur, engineSessions: { ...cur.engineSessions, [engine]: undefined } }
+      })
+      void api.engine.close()
+      get().pushNotice(`This chat's ${engine === 'claude' ? 'Claude' : 'Codex'} session isn't on this device, so it was continued from the saved conversation.`)
+      void get().sendToEngine(retry.text, { images: retry.images, display: retry.display, resend: true })
+      return
+    }
+    // Once the engine replies, the resume worked.
+    if (pendingResume && (ev.type === 'text-delta' || ev.type === 'text' || ev.type === 'tool-start' || (ev.type === 'done' && !ev.isError))) pendingResume = null
     const s = get().session
     const items = [...s.items]
     const findIdx = (pred: (i: ChatItem) => boolean) => {

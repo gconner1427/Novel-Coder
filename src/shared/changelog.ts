@@ -16,9 +16,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '0.1.3',
-    summary: 'Check your scene staging, and see what changed in each update.',
+    version: '0.2.0',
+    summary: 'Your AI and chats follow you between devices, plus a blocking check for scenes.',
     items: [
+      {
+        title: 'Work on any of your devices',
+        body:
+          "The AI's memory and your chats are now kept in each book's folder (.novel/ai). If your books are in cloud storage, switch from your desktop to your laptop, open the book, and carry on where you left off: the AI remembers what it learned about you and the book, and your chats resume with their full context. Novel Coder saves after every reply and picks things up when you open a book. See Settings → Devices & AI memory for Save now, Load now and the AI's memory notes."
+      },
+      {
+        title: 'One memory for both AIs',
+        body: 'Claude and Codex now share the same memory notes for each book, so what you tell one, the other knows too.'
+      },
       {
         title: 'Blocking check',
         body:

@@ -32,6 +32,18 @@ export default function App() {
       const b = useStore.getState().brainstorm
       if (b?.id === id) useStore.setState({ brainstorm: { ...b, ideas: text, fields, title: fields.title || b.title } })
     })
+    // Memory and chats that arrived from another device (loaded automatically when a book opens).
+    const offSync = api.aisync.onResult(({ result, error, manual }) => {
+      if (manual) return
+      const s = useStore.getState()
+      if (error) return s.notify(`Couldn't sync the AI's memory and chats: ${error}`, 'error')
+      if (!result) return
+      const chats = result.loaded.chats
+      const mem = result.loaded.memory + result.loaded.removed
+      const parts = [chats && `${chats} chat${chats === 1 ? '' : 's'}`, mem && `${mem} memory update${mem === 1 ? '' : 's'}`].filter(Boolean)
+      if (parts.length) s.notify(`Picked up ${parts.join(' and ')}${result.fromDevices.length ? ` from ${result.fromDevices.join(', ')}` : ''}. You can continue where you left off.`)
+      void s.refreshSessions()
+    })
     void st.refreshBrainstorms()
     void (async () => {
       const settings = await api.app.getSettings()
@@ -47,6 +59,7 @@ export default function App() {
       offProject()
       offEngine()
       offIdeas()
+      offSync()
     }
   }, [])
 

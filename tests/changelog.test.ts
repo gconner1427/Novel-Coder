@@ -16,10 +16,10 @@ describe("What's new changelog", () => {
   it('picks the versions to show after an update', () => {
     expect(compareVersions('0.1.10', '0.1.9')).toBeGreaterThan(0)
     // Fresh install: just this version.
-    expect(entriesSince('0.1.3').map((e) => e.version)).toEqual(['0.1.3'])
+    expect(entriesSince('0.2.0').map((e) => e.version)).toEqual(['0.2.0'])
     // Skipped versions are included, newest first; the last-seen version is not.
-    expect(entriesSince('0.1.3', '0.1.1').map((e) => e.version)).toEqual(['0.1.3', '0.1.2'])
+    expect(entriesSince('0.2.0', '0.1.1').map((e) => e.version)).toEqual(['0.2.0', '0.1.2'])
     // Already seen: nothing.
-    expect(entriesSince('0.1.3', '0.1.3')).toEqual([])
+    expect(entriesSince('0.2.0', '0.2.0')).toEqual([])
   })
 })

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FileDown, FolderOpen, LogIn, CheckCircle2, AlertCircle, BookOpen, FileText, Book, FileType, Library } from 'lucide-react'
-import { api, type ScaffoldOptions } from '../../lib/api'
+import { api, type AiSyncStatus, type ScaffoldOptions } from '../../lib/api'
 import { useStore } from '../../store'
 import { Modal } from '../ui'
 import { useUpdateStatus } from '../UpdateBanner'
@@ -460,6 +460,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
           </div>
         </>
       )}
+      <DevicesSection />
       <UpdatesSection />
       <div className="mt-5 flex items-center gap-3">
         <p className="flex-1 text-[11px] text-faint">Novel Coder {version}</p>
@@ -468,6 +469,89 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
         </button>
       </div>
     </Modal>
+  )
+}
+
+const ago = (t?: number) => {
+  if (!t) return 'never'
+  const s = Math.round((Date.now() - t) / 1000)
+  if (s < 60) return 'just now'
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`
+  if (s < 86400) return `${Math.floor(s / 3600)} hr ago`
+  return new Date(t).toLocaleDateString()
+}
+
+/** AI memory and chats are kept in the book so they follow it between devices. */
+function DevicesSection() {
+  const project = useStore((s) => s.project)
+  const notify = useStore((s) => s.notify)
+  const openTab = useStore((s) => s.openTab)
+  const refreshSessions = useStore((s) => s.refreshSessions)
+  const set = useStore((s) => s.set)
+  const [st, setSt] = useState<AiSyncStatus | null>(null)
+  const [busy, setBusy] = useState<'save' | 'load' | null>(null)
+  const refresh = () => void api.aisync.status().then(setSt)
+  useEffect(refresh, [project?.root])
+  if (!project || !st) return null
+  const others = st.devices.filter((d) => !d.thisDevice)
+
+  const run = async (which: 'save' | 'load') => {
+    setBusy(which)
+    try {
+      const r = which === 'save' ? await api.aisync.save() : await api.aisync.load()
+      if (which === 'save') notify(r.saved.chats + r.saved.memory ? `Saved ${r.saved.chats} chat${r.saved.chats === 1 ? '' : 's'} and ${r.saved.memory} memory note${r.saved.memory === 1 ? '' : 's'} to the book.` : 'Everything was already saved to the book.')
+      else {
+        const n = r.loaded.chats + r.loaded.memory + r.loaded.removed
+        notify(n ? `Loaded ${r.loaded.chats} chat${r.loaded.chats === 1 ? '' : 's'} and ${r.loaded.memory + r.loaded.removed} memory change${r.loaded.memory + r.loaded.removed === 1 ? '' : 's'}${r.fromDevices.length ? ` from ${r.fromDevices.join(', ')}` : ''}.` : 'This device already has everything saved in the book.')
+        void refreshSessions()
+      }
+    } catch (e) {
+      notify((e as Error).message, 'error')
+    } finally {
+      setBusy(null)
+      refresh()
+    }
+  }
+
+  return (
+    <>
+      <h3 className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wider text-faint">Devices &amp; AI memory</h3>
+      <div className="rounded-lg border border-line bg-panel2 p-3 text-[12.5px]" data-testid="devices">
+        <p className="mb-2 text-muted">
+          The AI's memory and your chats for this book are kept in the book's folder, so if it's in cloud storage they follow you to your other devices. Novel Coder saves them after each reply and loads them when you open the book.
+        </p>
+        <div className="mb-3 grid grid-cols-[130px_1fr] gap-y-1">
+          <span className="text-faint">This device</span>
+          <span>
+            {st.thisDevice} · saved {ago(st.lastSave)}
+          </span>
+          <span className="text-faint">Other devices</span>
+          <span>{others.length ? others.map((d) => `${d.name} (saved ${ago(d.lastSave)})`).join(', ') : 'None yet'}</span>
+          <span className="text-faint">In the book</span>
+          <span>
+            {st.chats} chat{st.chats === 1 ? '' : 's'}, {st.memoryNotes} memory note{st.memoryNotes === 1 ? '' : 's'}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn text-[12.5px]" disabled={!!busy} onClick={() => void run('save')}>
+            <FileDown size={13} /> {busy === 'save' ? 'Saving…' : 'Save now'}
+          </button>
+          <button className="btn text-[12.5px]" disabled={!!busy} onClick={() => void run('load')}>
+            <FolderOpen size={13} /> {busy === 'load' ? 'Loading…' : 'Load now'}
+          </button>
+          <button
+            className="btn text-[12.5px]"
+            disabled={st.memoryNotes === 0}
+            onClick={() => {
+              set({ dialog: null })
+              openTab({ kind: 'file', path: `${st.memoryDir}/MEMORY.md` })
+            }}
+          >
+            <FileText size={13} /> Open the AI's memory
+          </button>
+        </div>
+      </div>
+    </>
   )
 }
 

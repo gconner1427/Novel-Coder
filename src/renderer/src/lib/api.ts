@@ -50,6 +50,25 @@ export interface ScaffoldOptions {
   description?: string
 }
 
+export interface AiSyncResult {
+  direction: 'save' | 'load' | 'both'
+  saved: { chats: number; memory: number }
+  loaded: { chats: number; memory: number; removed: number }
+  fromDevices: string[]
+  at: number
+}
+
+export interface AiSyncStatus {
+  thisDevice: string
+  lastSave?: number
+  lastLoad?: number
+  lastLoadFrom: string[]
+  devices: { name: string; lastSave: number; thisDevice: boolean }[]
+  chats: number
+  memoryNotes: number
+  memoryDir: string
+}
+
 export interface BrainstormRecord {
   meta: { id: string; title: string; created: number; updated: number; engine: EngineId }
   session: SessionRecord | null
@@ -122,6 +141,12 @@ export interface NovelApi {
   }
   commands: { list(): Promise<SlashCommand[]>; expand(name: string, args: string): Promise<string | null> }
   auth: { status(): Promise<AuthStatus>; login(e: EngineId): Promise<void> }
+  aisync: {
+    status(): Promise<AiSyncStatus | null>
+    save(): Promise<AiSyncResult>
+    load(): Promise<AiSyncResult>
+    onResult(cb: (p: { result?: AiSyncResult; error?: string; manual: boolean }) => void): () => void
+  }
   updates: {
     status(): Promise<UpdateStatus>
     check(): Promise<UpdateStatus>
