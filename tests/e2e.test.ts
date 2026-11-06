@@ -161,8 +161,8 @@ describe.skipIf(!E2E)('Novel Coder app', () => {
       await page.click('#composer-input')
       await page.keyboard.type('Using the novel tools, who is the protagonist of this book? Answer in one short sentence.')
       await page.keyboard.press('Enter')
-      await page.waitForFunction(() => document.body.innerText.includes('Working…'), null, { timeout: 30000 }).catch(() => {})
-      await page.waitForFunction(() => !document.body.innerText.includes('Working… (Esc to interrupt)'), null, { timeout: 240000 })
+      await page.waitForFunction(() => !!document.querySelector('[data-busy]'), null, { timeout: 30000 }).catch(() => {})
+      await page.waitForFunction(() => !document.querySelector('[data-busy]'), null, { timeout: 240000 })
       const chat = await page.locator('aside').innerText()
       await page.screenshot({ path: path.join(shots, `06-chat-${engine.toLowerCase()}.png`) })
       expect(chat).toMatch(/project overview|bible/i) // used the novel MCP tools

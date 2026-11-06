@@ -17,8 +17,8 @@ let page: Page
 let base: string
 
 const waitIdle = async (timeout = 420000) => {
-  await page.waitForFunction(() => document.body.innerText.includes('Working…'), null, { timeout: 30000 }).catch(() => {})
-  await page.waitForFunction(() => !document.body.innerText.includes('Working… (Esc to interrupt)'), null, { timeout })
+  await page.waitForFunction(() => !!document.querySelector('[data-busy]'), null, { timeout: 30000 }).catch(() => {})
+  await page.waitForFunction(() => !document.querySelector('[data-busy]'), null, { timeout })
 }
 
 describe.skipIf(!RUN)('brainstorm → series flow', () => {

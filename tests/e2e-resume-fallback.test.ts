@@ -67,7 +67,7 @@ describe.skipIf(!RUN)('continuing a chat whose engine session is on another devi
       await page.keyboard.press('Enter')
       await page.waitForSelector("text=/isn't on this device/", { timeout: 120000 })
       await page.waitForFunction((w) => document.body.innerText.includes(w), word, { timeout: 240000 })
-      await page.waitForFunction(() => !document.body.innerText.includes('Working… (Esc to interrupt)'), null, { timeout: 240000 })
+      await page.waitForFunction(() => !document.querySelector('[data-busy]'), null, { timeout: 240000 })
       await page.screenshot({ path: path.join(shots, `fallback-${engine}.png`) })
       const chat = await page.locator('aside').last().innerText()
       expect(chat).toContain(word)

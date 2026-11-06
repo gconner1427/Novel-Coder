@@ -28,6 +28,11 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: 'Your words come first',
         body:
           "A scene now opens with its title, its summary and one quiet line showing its status, POV, place and time, instead of a form. Click Scene details to edit them. The editor's tools and the AI actions (Continue, Line edit, Continuity, Blocking) now fit on one row."
+      },
+      {
+        title: 'A calmer chat',
+        body:
+          "While the AI works you see each step in plain words (Reading Dusk Harvest, Searched for “lantern”, Writing The Ladder). When it's done they fold into one line, like “Read 2 files and edited Dusk Harvest”, so the conversation stays easy to follow. Click that line to see every step again. Edits show the scene's name, how many words changed, and a preview set in your book's typeface. Requests to approve edits, plans and questions are clearer cards, such as “Claude wants to edit Dusk Harvest”."
       }
     ]
   },

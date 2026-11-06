@@ -44,6 +44,7 @@ export function ChatPane({ wide }: { wide: boolean }) {
   }, [session.items, busy])
 
   const empty = session.items.length === 0
+  const doneCount = todos.filter((t) => t.status === 'completed').length
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -114,30 +115,50 @@ export function ChatPane({ wide }: { wide: boolean }) {
             <MessageList items={session.items} />
           )}
           {busy && (
-            <div className="thinking-dots my-2 flex items-center gap-1 pl-1 text-accent">
-              <span>●</span>
-              <span>●</span>
-              <span>●</span>
-              <span className="ml-2 text-[12px] text-faint">Working… (Esc to interrupt)</span>
+            <div data-busy className="anim-fade my-3 flex items-center gap-2.5 text-[12.5px]">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-50" />
+                <span className="relative h-2 w-2 rounded-full bg-accent" />
+              </span>
+              <span className="shimmer font-medium">Working…</span>
+              <span className="text-[11.5px] text-faint">
+                <kbd className="rounded border border-b-2 border-line-strong px-1 font-[var(--font-ui)] text-[10.5px]">Esc</kbd> to stop
+              </span>
             </div>
           )}
         </div>
       </div>
 
       {todos.length > 0 && (
-        <div className="shrink-0 border-t border-line px-3 py-2">
-          <button className="mb-1 flex w-full items-center gap-1.5 text-[12px] font-semibold text-muted" onClick={() => setTodosOpen(!todosOpen)}>
-            <ListChecks size={13} /> Plan · {todos.filter((t) => t.status === 'completed').length}/{todos.length}
-            <span className="flex-1" />
-            {todosOpen ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
-          </button>
-          {todosOpen &&
-            todos.map((t, i) => (
-              <div key={i} className={`flex items-start gap-1.5 py-0.5 text-[12.5px] ${t.status === 'completed' ? 'text-faint line-through' : t.status === 'in_progress' ? 'text-fg' : 'text-muted'}`}>
-                {t.status === 'completed' ? <CheckCircle2 size={13} className="mt-0.5 text-ok" /> : t.status === 'in_progress' ? <CircleDot size={13} className="mt-0.5 text-accent" /> : <Circle size={13} className="mt-0.5" />}
-                {t.text}
+        <div className={`shrink-0 px-3 pt-1 ${wide ? 'mx-auto w-full max-w-[860px]' : ''}`}>
+          <div className="rounded-xl border border-line bg-panel2/70 px-3 py-2">
+            <button className="flex w-full items-center gap-2 text-[12px] font-semibold text-muted hover:text-fg" aria-expanded={todosOpen} onClick={() => setTodosOpen(!todosOpen)}>
+              <ListChecks size={13} className="text-accent" /> Plan
+              <span className="font-normal tabular-nums text-faint">
+                {doneCount} of {todos.length} done
+              </span>
+              <span className="relative ml-1 h-1 flex-1 overflow-hidden rounded-full bg-line-strong">
+                <span className="absolute inset-y-0 left-0 rounded-full bg-accent transition-[width] duration-500" style={{ width: `${(doneCount / todos.length) * 100}%` }} />
+              </span>
+              {todosOpen ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+            </button>
+            {todosOpen && (
+              <div className="anim-drop mt-1.5 max-h-40 space-y-0.5 overflow-y-auto">
+                {todos.map((t, i) => (
+                  <div key={i} className={`flex items-start gap-2 py-0.5 text-[12.5px] ${t.status === 'completed' ? 'text-faint line-through decoration-faint/60' : t.status === 'in_progress' ? 'text-fg' : 'text-muted'}`}>
+                    {t.status === 'completed' ? (
+                      <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-ok" />
+                    ) : t.status === 'in_progress' ? (
+                      <CircleDot size={13} className="mt-0.5 shrink-0 animate-pulse text-accent" />
+                    ) : (
+                      <Circle size={13} className="mt-0.5 shrink-0 text-faint" />
+                    )}
+                    {t.text}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+          </div>
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
 import { X, FileText, BarChart3, LayoutGrid, Sparkles, Eye, AlignLeft, MessageSquareQuote, ShieldCheck, Wand2, FolderOpen, Footprints, User, MapPin, Clock, ChevronDown } from 'lucide-react'
-import { Dropdown, StatusPill } from '../ui'
+import { Dropdown, StatusPill, docTitle } from '../ui'
 import { api } from '../../lib/api'
 import { useStore, tabKey, type Tab } from '../../store'
 import { ProseEditor, FormatBar, countWordsClient } from './ProseEditor'
@@ -21,16 +21,7 @@ export function EditorPane() {
   const closeTab = useStore((s) => s.closeTab)
   const project = useStore((s) => s.project)!
 
-  const titleFor = (p: string) => {
-    const sc = project.chapters.flatMap((c) => c.scenes).find((s) => s.path === p)
-    if (sc) return sc.title
-    const be = project.bible.find((b) => b.path === p)
-    if (be) return be.name
-    if (p === '../series-outline.md') return 'Series outline'
-    if (p === '../SERIES.md') return 'Series instructions'
-    if (p.startsWith('../bible/')) return `Series ${p.split('/').pop()!.replace(/\.md$/, '').replace('-', ' ')}`
-    return p.split('/').pop()!.replace(/\.md$/, '')
-  }
+  const titleFor = (p: string) => docTitle(project, p)
   const cur = tabs.find((t) => tabKey(t) === active)
 
   return (

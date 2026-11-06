@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { useStore } from '../store'
-import type { EngineId } from '@shared/types'
+import type { EngineId, ProjectSnapshot } from '@shared/types'
 
 export function Toast() {
   const toast = useStore((s) => s.toast)
@@ -164,6 +164,20 @@ export function StatusPill({ status }: { status: string }) {
 
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="px-5 py-8 text-center text-[12.5px] leading-relaxed text-faint">{children}</div>
+}
+
+/** A human name for a project file: the scene title, bible entry name, or a tidy file name. */
+export function docTitle(project: ProjectSnapshot | null, p: string): string {
+  const sc = project?.chapters.flatMap((c) => c.scenes).find((s) => s.path === p)
+  if (sc) return sc.title
+  const be = project?.bible.find((b) => b.path === p)
+  if (be) return be.name
+  if (p === '../series-outline.md') return 'Series outline'
+  if (p === '../SERIES.md') return 'Series instructions'
+  if (p.startsWith('../bible/')) return `Series ${p.split('/').pop()!.replace(/\.md$/, '').replace('-', ' ')}`
+  // "02-the-ladder.md" → "The ladder"
+  const name = p.split('/').pop()!.replace(/\.md$/, '').replace(/^\d+[-_ ]+/, '').replace(/[-_]+/g, ' ').trim()
+  return name ? name[0].toUpperCase() + name.slice(1) : p
 }
 
 export function timeAgo(ts: number): string {

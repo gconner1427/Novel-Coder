@@ -95,7 +95,7 @@ describe.skipIf(!E2E)('responsiveness in a series book', () => {
     )
     await page.keyboard.press('Enter')
     await page.waitForFunction(() => document.querySelector('.ProseMirror')?.textContent?.includes('thirteen times'), null, { timeout: 180000 })
-    await page.waitForFunction(() => !document.body.innerText.includes('Working… (Esc to interrupt)'), null, { timeout: 180000 })
+    await page.waitForFunction(() => !document.querySelector('[data-busy]'), null, { timeout: 180000 })
     // Other documents still open with content.
     await page.click('button[title="Story Bible"]')
     await page.click('text=Character 3')
