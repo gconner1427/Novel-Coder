@@ -95,6 +95,28 @@ describe.skipIf(!E2E)('Novel Coder app', () => {
     await pick('Effort: high', 'Auto')
   })
 
+  it('keeps the scene toolbar usable in a narrow window', async () => {
+    await page.click('text=Dusk Harvest')
+    const blocking = page.locator('button[title^="Check the scene\'s blocking"]')
+    expect(await blocking.innerText()).toContain('Blocking')
+    await page.setViewportSize({ width: 1100, height: 900 })
+    await page.waitForTimeout(300)
+    // Labels fold away; every button stays visible and clickable by its icon.
+    for (const t of ['Continue writing', 'Line-edit', 'Check this scene against', "Check the scene's blocking"]) {
+      const b = page.locator(`button[title^="${t}"]`)
+      expect(await b.isVisible(), t).toBe(true)
+      const box = (await b.boundingBox())!
+      const bar = (await page.getByTestId('doc-toolbar').boundingBox())!
+      expect(box.width, `${t} is not squashed`).toBeGreaterThan(20)
+      // Inside the toolbar's visible area, not pushed past its edge.
+      expect(box.x + box.width, `${t} fits in the toolbar`).toBeLessThanOrEqual(bar.x + bar.width + 1)
+      expect(box.y + box.height, `${t} fits in the toolbar`).toBeLessThanOrEqual(bar.y + bar.height + 1)
+      expect(await b.evaluate((el) => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!hit && el.contains(hit) }), `${t} is clickable`).toBe(true)
+    }
+    await page.screenshot({ path: path.join(shots, '02b-narrow-toolbar.png') })
+    await page.setViewportSize({ width: 1500, height: 920 })
+  })
+
   it('switches engines with the toggle', async () => {
     await page.click('[role=radio]:has-text("Codex")')
     expect(await page.locator('[role=radio][aria-checked=true]').innerText()).toContain('Codex')

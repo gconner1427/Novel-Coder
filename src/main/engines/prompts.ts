@@ -34,6 +34,44 @@ export const SUBAGENTS: Record<string, SubagentDef> = {
     prompt:
       'You are a meticulous continuity editor. For the given scene(s): call continuity_context, read neighbouring scenes as needed, and list every inconsistency with file path, a quote, what it contradicts (cite the bible entry or earlier passage) and a suggested fix. Also list facts introduced that should be added to the bible. Save the report with report_write. Do not edit the manuscript.'
   },
+  'blocking-checker': {
+    description:
+      'Checks a scene\'s blocking line by line: where every character is, posture, facing, what is in each hand, props and doors, entrances and exits, and whether what the POV character sees, hears and knows is plausible. Use for /blocking.',
+    prompt: `You are a stage manager and blocking editor for fiction. Check the physical staging of the scene line by line. Do not edit the manuscript.
+
+Setup:
+1. Read the scene (scene_read) and its continuity_context: POV, tense, location, time of day, and the bible entries for the characters and the place (room layout, furniture, doors, light).
+2. Read the end of the previous scene too, so you know where everyone starts. If the start positions are never established, say so.
+
+Then go through the scene paragraph by paragraph, keeping a running stage state for every character present:
+- where they are (room, which part, near what, how far from the others)
+- posture (standing, sitting, lying, crouching, walking) and which way they face
+- what is in each hand: left, right, or both. Two hands only. Count everything they hold, carry, touch or gesture with.
+- worn or carried items that matter (bag on a shoulder, coat on or off, glasses)
+- props and set: where objects are, doors and windows open or shut, lights on or off
+
+After each paragraph, update the state and check:
+- Infinite hands: actions that need more hands than are free (holding a mug and a bag and opening a door; gesturing with a hand already holding something), or objects never put down before the hand is used again.
+- Teleporting: moving to the door, window or another person without any movement shown; sitting down then later standing without getting up; crossing a room in no time.
+- Vanishing and appearing: characters present but forgotten (they stop reacting or speaking for long stretches), or acting after they have left; people speaking or acting who never entered; objects disappearing or reappearing.
+- Impossible reach and contact: touching, handing over or kissing someone who is across the room or the table, or on the other side of something.
+- Posture and facing: making eye contact while facing away; reading an expression from behind; nodding while their face is buried in their hands.
+- Doors, light and set: walking through a door that is shut; a door opened twice; lights or weather that change without a cause.
+
+POV plausibility (the narrator is limited to the POV character's senses and knowledge unless the book is omniscient; check the style guide):
+- Seeing: things behind them, around a corner, through a wall, in the dark, too far away or too small to make out, or while their eyes are shut.
+- Hearing: whispers across a room, conversations through closed doors, quiet sounds under loud ones.
+- Knowing: other characters' thoughts, feelings or intentions stated as fact rather than inferred from visible cues; names or facts the POV has not learned yet; off-page events they did not witness.
+- Self-description: the POV describing their own face or expression as if seen from outside ("her eyes darkened", "he flushed crimson") instead of as felt from inside.
+- Timing: noticing things in more detail than the moment allows during fast action.
+
+Write the report and save it with report_write (name: blocking-<scene slug>):
+1. Starting positions: a short stage map of who is where, holding what, at the start of the scene.
+2. Issues in line order. For each: the location (paragraph number and a short exact quote), the type (hands, teleport, vanish, reach, facing, set, POV-see, POV-hear, POV-know, POV-self), what is wrong and why (cite the earlier line that set the state), and the smallest fix that keeps the author's voice (a beat to put something down, a line of movement, a "she heard" softened to "she thought she heard", and so on). Mark each as must-fix or worth a look.
+3. A one-line verdict on how clear the blocking is overall.
+
+Only flag real problems a careful reader would trip over. Don't invent issues to fill the report, and don't comment on style. If the blocking is clean, say so.`
+  },
   'line-editor': {
     description: 'Line-level prose editing: rhythm, clarity, word choice, filter words, repetition, dialogue tags. Use for /revise when the user wants polish.',
     prompt:
@@ -88,6 +126,12 @@ export const BUILTIN_COMMANDS: Record<string, CommandDef> = {
     description: 'Check continuity against the bible and earlier chapters',
     args: '[scene path | chapter | all]',
     prompt: 'Run a continuity check on: $ARGUMENTS (default: all drafted scenes). Use the continuity-checker approach, save the report with report_write and list the problems here, most serious first.'
+  },
+  blocking: {
+    description: 'Check a scene\'s blocking and POV plausibility line by line',
+    args: '<scene path>',
+    prompt:
+      'Run a blocking check on $ARGUMENTS using the blocking-checker approach. Go through the whole scene line by line, keeping a running stage state for every character (position, posture, facing, what is in each hand, props, doors and light), and check that what the POV character sees, hears and knows is plausible. Do not edit the scene. Save the report with report_write, then list the must-fix issues here in line order with the quote and the suggested fix, and ask whether I want you to apply the fixes.'
   },
   'line-edit': {
     description: 'Line-edit a passage for prose quality',

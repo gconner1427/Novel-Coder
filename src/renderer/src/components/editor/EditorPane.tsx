@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
-import { X, FileText, BarChart3, LayoutGrid, Sparkles, Eye, AlignLeft, MessageSquareQuote, ShieldCheck, Wand2, FolderOpen } from 'lucide-react'
+import { X, FileText, BarChart3, LayoutGrid, Sparkles, Eye, AlignLeft, MessageSquareQuote, ShieldCheck, Wand2, FolderOpen, Footprints } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useStore, tabKey, type Tab } from '../../store'
 import { ProseEditor, FormatBar, countWordsClient } from './ProseEditor'
@@ -203,19 +203,26 @@ function DocEditor({ path }: { path: string }) {
   return (
     <div className={`flex h-full flex-col ${focusMode ? 'focus-mode' : ''}`}>
       {/* toolbar */}
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-3">
+      <div className="@container flex min-h-10 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-line px-3 py-1" data-testid="doc-toolbar">
         {isMd && <FormatBar editor={editorInst} />}
         <div className="flex-1" />
         {isScene && (
           <>
             <button className="btn btn-ghost py-1 text-[12px]" title="Continue writing from the end of this scene" onClick={() => void ask('continue', path)}>
-              <Sparkles size={13} /> Continue
+              <Sparkles size={13} /> <span className="hidden @[640px]:inline">Continue</span>
             </button>
             <button className="btn btn-ghost py-1 text-[12px]" title="Line-edit this scene" onClick={() => void ask('line-edit', path)}>
-              <Wand2 size={13} /> Line edit
+              <Wand2 size={13} /> <span className="hidden @[640px]:inline">Line edit</span>
             </button>
             <button className="btn btn-ghost py-1 text-[12px]" title="Check this scene against the story bible" onClick={() => void ask('continuity', path)}>
-              <ShieldCheck size={13} /> Continuity
+              <ShieldCheck size={13} /> <span className="hidden @[640px]:inline">Continuity</span>
+            </button>
+            <button
+              className="btn btn-ghost py-1 text-[12px]"
+              title="Check the scene's blocking line by line: positions, hands, props, entrances and exits, and whether the POV can see or hear what's narrated"
+              onClick={() => void ask('blocking', path)}
+            >
+              <Footprints size={13} /> <span className="hidden @[640px]:inline">Blocking</span>
             </button>
           </>
         )}

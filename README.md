@@ -19,7 +19,7 @@ If you already use Claude Code or the Codex CLI on this PC, you're already signe
 - Engine toggle in the title bar (Claude ⇄ Codex). Switching mid-conversation hands the transcript over to the other engine.
 - Model and effort pickers, and permission modes: Ask before edits, Auto-accept edits, Plan mode, Full auto.
   - Claude: per-tool permission prompts, plan approval cards, and clarifying-question cards.
-- Subagents: continuity-checker, line-editor, developmental-editor, beta-reader.
+- Subagents: continuity-checker, blocking-checker, line-editor, developmental-editor, beta-reader.
 - Todo/plan panel, Esc to interrupt, conversation history and resume, image attachments, `@file` mentions.
 - Everything else the engines can do still works (web search, shell, MCP servers in your own config, and so on).
 
@@ -50,7 +50,7 @@ If you already use Claude Code or the Codex CLI on this PC, you're already signe
 - **Story bible:** characters, locations, lore, timeline and style guide, all editable as forms.
 - **Outline and beat sheets:** Save the Cat, Three-Act or Hero's Journey; plus a corkboard.
 - **Novel MCP server**, available to both engines: `project_overview`, `scene_read/write/create/list`, `bible_get/search/upsert`, `continuity_context`, `outline_get/update`, `timeline_add`, `report_write`, `snapshot_create`, `word_count`.
-- **Slash commands:** `/draft`, `/continue`, `/revise`, `/line-edit`, `/critique`, `/continuity`, `/beta`, `/outline`, `/beats`, `/character`, `/worldbuild`, `/bible-sync`, `/summarize`, `/brainstorm`, `/rename-character`.
+- **Slash commands:** `/draft`, `/continue`, `/revise`, `/line-edit`, `/critique`, `/continuity`, `/blocking`, `/beta`, `/outline`, `/beats`, `/character`, `/worldbuild`, `/bible-sync`, `/summarize`, `/brainstorm`, `/rename-character`.
   - App commands: `/engine`, `/model`, `/plan`, `/compact`, `/clear`, `/snapshot`, `/rewind`, `/export`, `/wordcount`, `/goal`, `/resume`, `/help`.
   - Add your own commands as `.novel/commands/*.md`.
 - **Snapshots & rewind:** a hidden Git history in `.novel/history`. Codex turns are checkpointed automatically, and you can roll back the whole project.
