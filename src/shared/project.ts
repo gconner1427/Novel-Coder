@@ -13,7 +13,8 @@ import type {
   SceneMeta,
   SceneStatus,
   SeriesConfig,
-  SeriesInfo
+  SeriesInfo,
+  ShelfBook
 } from './types'
 
 export const CONFIG_FILE = 'novel.json'
@@ -589,6 +590,32 @@ export function listFiles(root: string, dir = '', out: string[] = []): string[] 
     else out.push(rel)
   }
   return out
+}
+
+/** A light summary of a book for the Welcome shelf. Never throws: a missing or broken folder comes back with exists: false. */
+export function shelfBook(root: string): ShelfBook {
+  const fallback = path.basename(root)
+  if (!isNovelProject(root)) return { root, exists: false, title: fallback, author: '', genre: '', words: 0, targetWords: 0, scenes: 0 }
+  try {
+    const cfg = loadConfig(root)
+    const chapters = listChapters(root)
+    const s = findSeriesRoot(root)
+    return {
+      root,
+      exists: true,
+      title: cfg.title || fallback,
+      author: cfg.author,
+      genre: cfg.genre,
+      words: chapters.reduce((a, c) => a + c.words, 0),
+      targetWords: cfg.targetWords,
+      scenes: chapters.reduce((a, c) => a + c.scenes.length, 0),
+      premise: premiseOf(root),
+      seriesTitle: s ? loadSeriesConfig(s).title : undefined,
+      seriesNumber: s ? cfg.seriesNumber : undefined
+    }
+  } catch {
+    return { root, exists: false, title: fallback, author: '', genre: '', words: 0, targetWords: 0, scenes: 0 }
+  }
 }
 
 export function loadProject(root: string): ProjectSnapshot {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { FileDown, FolderOpen, LogIn, CheckCircle2, AlertCircle, BookOpen, FileText, Book, FileType, Library } from 'lucide-react'
 import { api, type AiSyncStatus, type ScaffoldOptions } from '../../lib/api'
 import { useStore } from '../../store'
@@ -322,6 +322,53 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ---------------- Settings: one scrolling page with a side menu ----------------
+
+/** A label and hint on the left, its control on the right. */
+function Row({ label, hint, children, align = 'center' }: { label: ReactNode; hint?: ReactNode; children?: ReactNode; align?: 'center' | 'start' }) {
+  return (
+    <div className={`flex gap-6 border-b border-line py-3.5 last:border-0 ${align === 'center' ? 'items-center' : 'items-start'}`}>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] font-medium">{label}</div>
+        {hint && <div className="mt-0.5 text-[12px] leading-relaxed text-faint">{hint}</div>}
+      </div>
+      {children !== undefined && <div className="flex shrink-0 items-center gap-2">{children}</div>}
+    </div>
+  )
+}
+
+function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <section id={`settings-${id}`} data-section={id} className="mb-9 scroll-mt-1">
+      <h3 className="mb-1 text-[16px] font-semibold tracking-[-0.01em]">{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+/** Segmented control: a small group of mutually exclusive options. */
+function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: ReactNode }[]; onChange: (v: T) => void; label: string }) {
+  return (
+    <div className="flex rounded-[9px] border border-line bg-bg p-[3px]" role="radiogroup" aria-label={label}>
+      {options.map((o) => {
+        const on = o.value === value
+        return (
+          <button
+            key={o.value}
+            role="radio"
+            aria-checked={on}
+            className={`rounded-md px-3 py-1 text-[12.5px] ${on ? 'bg-raised font-medium text-fg' : 'text-faint hover:text-muted'}`}
+            style={on ? { boxShadow: 'var(--shadow-sm), 0 1px 0 rgba(255,255,255,.05) inset' } : undefined}
+            onClick={() => onChange(o.value)}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function SettingsDialog({ onClose }: { onClose: () => void }) {
   const settings = useStore((s) => s.settings)!
   const auth = useStore((s) => s.auth)
@@ -330,143 +377,217 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
   const notify = useStore((s) => s.notify)
   const [cfg, setCfg] = useState<NovelConfig | null>(project?.config ?? null)
   const [version, setVersion] = useState('')
+  const [active, setActive] = useState('accounts')
   useEffect(() => {
     void api.app.version().then(setVersion)
     void api.auth.status().then((a) => set({ auth: a }))
   }, [set])
 
+  // Highlight the menu entry for the section in view.
+  useEffect(() => {
+    const els = Array.from(document.querySelectorAll<HTMLElement>('[data-section]'))
+    const io = new IntersectionObserver(
+      (entries) => {
+        const vis = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        if (vis[0]) setActive((vis[0].target as HTMLElement).dataset.section!)
+      },
+      { rootMargin: '0px 0px -65% 0px' }
+    )
+    els.forEach((el) => io.observe(el))
+    return () => io.disconnect()
+  }, [project])
+
   const upd = async (p: Partial<typeof settings>) => set({ settings: await api.app.setSettings(p) })
+  const dirty = !!(project && cfg && JSON.stringify(cfg) !== JSON.stringify(project.config))
+  const save = async () => {
+    if (!cfg) return
+    await api.project.saveConfig(cfg)
+    notify('Saved the settings for this book.')
+  }
+
+  const sections = [
+    ['accounts', 'Accounts'],
+    ['appearance', 'Appearance'],
+    ...(project ? [['book', 'This book'], ['devices', 'Devices & AI memory']] : []),
+    ['updates', 'Updates'],
+    ['about', 'About']
+  ] as [string, string][]
 
   return (
     <Modal
       title="Settings"
       onClose={onClose}
-      width={640}
+      width={820}
       footer={
-        <>
-          {project && cfg && (
-            <button
-              className="btn btn-primary"
-              onClick={async () => {
-                await api.project.saveConfig(cfg)
-                notify('Project settings saved.')
-                onClose()
-              }}
-            >
-              Save project settings
+        dirty ? (
+          <div className="flex w-full items-center gap-3">
+            <span className="flex-1 text-[12.5px] text-muted">You have unsaved changes to this book's settings.</span>
+            <button className="btn btn-ghost" onClick={() => setCfg(project!.config)}>
+              Discard
             </button>
-          )}
-          <button className="btn" onClick={onClose}>
-            Close
-          </button>
-        </>
+            <button className="btn btn-primary" onClick={() => void save()}>
+              Save changes
+            </button>
+          </div>
+        ) : undefined
       }
     >
-      <h3 className="mb-2 section-label">Accounts</h3>
-      <div className="mb-5 space-y-2">
-        {(['claude', 'codex'] as EngineId[]).map((e) => {
-          const a = auth?.[e]
-          return (
-            <div key={e} className="flex items-center gap-3 rounded-lg border border-line bg-panel2 p-3">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: `var(--${e})` }} />
-              <div className="flex-1">
-                <div className="font-semibold">{e === 'claude' ? 'Claude (Claude Code engine)' : 'Codex (ChatGPT)'}</div>
-                <div className="flex items-center gap-1 text-[12px] text-muted">
-                  {a?.loggedIn ? <CheckCircle2 size={12} className="text-ok" /> : <AlertCircle size={12} className="text-warn" />}
-                  {a?.detail}
-                </div>
-              </div>
-              {a && !a.installed ? (
-                <button className="btn text-[12.5px]" onClick={() => void api.app.openExternal('https://code.claude.com/docs/en/setup')}>
-                  <LogIn size={13} /> Install Claude Code
-                </button>
-              ) : (
-                <button className="btn text-[12.5px]" onClick={() => void api.auth.login(e)}>
-                  <LogIn size={13} /> {a?.loggedIn ? 'Re-login' : 'Log in'}
-                </button>
-              )}
-            </div>
-          )
-        })}
-        <p className="text-[11.5px] text-faint">
-          Novel Coder runs Claude Code (installed separately from Anthropic) and Codex on your computer. You sign in to each through its own login, and usage counts against your own Claude or ChatGPT plan. Novel Coder never sees your credentials.
-        </p>
-      </div>
-
-      <h3 className="mb-2 section-label">Appearance</h3>
-      <div className="mb-5 grid grid-cols-3 gap-3 text-[12.5px] text-muted">
-        <label>
-          Theme
-          <select className="field mt-1 w-full" value={settings.theme} onChange={(e) => void upd({ theme: e.target.value as 'dark' })}>
-            <option value="system">System</option>
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
-        </label>
-        <label>
-          Editor font
-          <select className="field mt-1 w-full" value={settings.editorFont} onChange={(e) => void upd({ editorFont: e.target.value as 'serif' })}>
-            <option value="serif">Serif (book)</option>
-            <option value="sans">Sans-serif</option>
-            <option value="mono">Typewriter</option>
-          </select>
-        </label>
-        <label>
-          Page width
-          <input type="range" min={520} max={1100} step={20} className="mt-2 w-full" value={settings.editorWidth} onChange={(e) => void upd({ editorWidth: Number(e.target.value) })} />
-        </label>
-      </div>
-
-      {project && cfg && (
-        <>
-          <h3 className="mb-2 section-label">This novel</h3>
-          <div className="grid grid-cols-2 gap-3 text-[12.5px] text-muted">
-            {(['title', 'author', 'genre', 'pov', 'tense'] as const).map((k) => (
-              <label key={k} className="capitalize">
-                {k === 'pov' ? 'Point of view' : k}
-                <input className="field mt-1 w-full" value={cfg[k]} onChange={(e) => setCfg({ ...cfg, [k]: e.target.value })} />
-              </label>
-            ))}
-            <label>
-              Default engine
-              <select className="field mt-1 w-full" value={cfg.defaultEngine} onChange={(e) => setCfg({ ...cfg, defaultEngine: e.target.value as EngineId })}>
-                <option value="claude">Claude</option>
-                <option value="codex">Codex</option>
-              </select>
-            </label>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button className="btn text-[12.5px]" onClick={() => void api.app.openPath(project.root)}>
-              <FolderOpen size={13} /> Open project folder
-            </button>
-            {project.series ? (
-              <button className="btn text-[12.5px]" onClick={() => set({ dialog: null, sidebar: 'series' })}>
-                <Library size={13} /> Series settings
-              </button>
-            ) : (
-              <button className="btn text-[12.5px]" onClick={() => set({ dialog: 'make-series' })}>
-                <Library size={13} /> Turn into a series
-              </button>
-            )}
+      <div className="flex min-h-[520px] gap-8">
+        <nav className="sticky top-0 flex w-44 shrink-0 flex-col gap-0.5 self-start" aria-label="Settings sections">
+          {sections.map(([id, label]) => (
             <button
-              className="btn text-[12.5px]"
-              onClick={async () => {
-                await api.project.close()
-                set({ project: null, dialog: null })
+              key={id}
+              className={`rounded-lg px-3 py-1.5 text-left text-[13px] ${active === id ? 'bg-panel2 font-medium text-fg' : 'text-muted hover:bg-panel2/60 hover:text-fg'}`}
+              onClick={() => {
+                setActive(id)
+                document.getElementById(`settings-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
               }}
             >
-              Close project
+              {label}
             </button>
-          </div>
-        </>
-      )}
-      <DevicesSection />
-      <UpdatesSection />
-      <div className="mt-5 flex items-center gap-3">
-        <p className="flex-1 text-[11px] text-faint">Novel Coder {version}</p>
-        <button className="btn text-[12.5px]" onClick={() => openWhatsNew()}>
-          What's new in this version
-        </button>
+          ))}
+        </nav>
+
+        <div className="min-w-0 flex-1 pb-[30vh]">
+          <Section id="accounts" title="Accounts">
+            {(['claude', 'codex'] as EngineId[]).map((e) => {
+              const a = auth?.[e]
+              return (
+                <Row
+                  key={e}
+                  label={
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full" style={{ background: `var(--${e})`, boxShadow: `0 0 6px var(--${e})` }} />
+                      {e === 'claude' ? 'Claude' : 'Codex'}
+                      <span className="font-normal text-faint">{e === 'claude' ? 'Claude Code engine' : 'ChatGPT'}</span>
+                    </span>
+                  }
+                  hint={
+                    <span className="flex items-center gap-1">
+                      {a?.loggedIn ? <CheckCircle2 size={12} className="text-ok" /> : <AlertCircle size={12} className="text-warn" />}
+                      {a?.detail ?? 'Checking…'}
+                    </span>
+                  }
+                >
+                  {a && !a.installed ? (
+                    <button className="btn text-[12.5px]" onClick={() => void api.app.openExternal('https://code.claude.com/docs/en/setup')}>
+                      <LogIn size={13} /> Install Claude Code
+                    </button>
+                  ) : (
+                    <button className="btn text-[12.5px]" onClick={() => void api.auth.login(e)}>
+                      <LogIn size={13} /> {a?.loggedIn ? 'Re-login' : 'Log in'}
+                    </button>
+                  )}
+                </Row>
+              )
+            })}
+            <p className="mt-2 text-[11.5px] leading-relaxed text-faint">
+              Novel Coder runs Claude Code (installed separately from Anthropic) and Codex on your computer. You sign in to each through its own login, and usage counts against your own Claude or ChatGPT plan. Novel Coder never sees your credentials.
+            </p>
+          </Section>
+
+          <Section id="appearance" title="Appearance">
+            <Row label="Theme" hint="System follows your Windows setting.">
+              <Segmented
+                label="Theme"
+                value={settings.theme}
+                onChange={(v) => void upd({ theme: v })}
+                options={[
+                  { value: 'system', label: 'System' },
+                  { value: 'dark', label: 'Dark' },
+                  { value: 'light', label: 'Light' }
+                ]}
+              />
+            </Row>
+            <Row label="Editor font" hint="The typeface your manuscript is written in.">
+              <Segmented
+                label="Editor font"
+                value={settings.editorFont}
+                onChange={(v) => void upd({ editorFont: v })}
+                options={[
+                  { value: 'serif', label: <span style={{ fontFamily: 'var(--font-prose)' }}>Book</span> },
+                  { value: 'sans', label: 'Sans' },
+                  { value: 'mono', label: <span style={{ fontFamily: 'var(--font-code)' }}>Typewriter</span> }
+                ]}
+              />
+            </Row>
+            <Row label="Page width" hint="How wide the writing column is.">
+              <input
+                type="range"
+                min={520}
+                max={1100}
+                step={20}
+                className="w-40 accent-[var(--accent)]"
+                aria-label="Page width"
+                value={settings.editorWidth}
+                onChange={(e) => void upd({ editorWidth: Number(e.target.value) })}
+              />
+              <span className="w-12 text-right text-[12px] tabular-nums text-faint">{settings.editorWidth}px</span>
+            </Row>
+          </Section>
+
+          {project && cfg && (
+            <Section id="book" title="This book">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 pt-2 text-[12.5px] text-muted">
+                {(['title', 'author', 'genre', 'pov', 'tense'] as const).map((k) => (
+                  <label key={k}>
+                    {k === 'pov' ? 'Point of view' : k[0].toUpperCase() + k.slice(1)}
+                    <input className="field mt-1 w-full text-fg" value={cfg[k]} onChange={(e) => setCfg({ ...cfg, [k]: e.target.value })} />
+                  </label>
+                ))}
+                <label>
+                  Default AI
+                  <select className="field mt-1 w-full text-fg" value={cfg.defaultEngine} onChange={(e) => setCfg({ ...cfg, defaultEngine: e.target.value as EngineId })}>
+                    <option value="claude">Claude</option>
+                    <option value="codex">Codex</option>
+                  </select>
+                </label>
+                <label>
+                  Target length (words)
+                  <input type="number" min={0} step={1000} className="field mt-1 w-full text-fg" value={cfg.targetWords} onChange={(e) => setCfg({ ...cfg, targetWords: Number(e.target.value) || 0 })} />
+                </label>
+                <label>
+                  Daily goal (words)
+                  <input type="number" min={0} step={100} className="field mt-1 w-full text-fg" value={cfg.dailyGoal} onChange={(e) => setCfg({ ...cfg, dailyGoal: Number(e.target.value) || 0 })} />
+                </label>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button className="btn text-[12.5px]" onClick={() => void api.app.openPath(project.root)}>
+                  <FolderOpen size={13} /> Open book folder
+                </button>
+                {project.series ? (
+                  <button className="btn text-[12.5px]" onClick={() => set({ dialog: null, sidebar: 'series' })}>
+                    <Library size={13} /> Series settings
+                  </button>
+                ) : (
+                  <button className="btn text-[12.5px]" onClick={() => set({ dialog: 'make-series' })}>
+                    <Library size={13} /> Turn into a series
+                  </button>
+                )}
+                <button
+                  className="btn btn-ghost text-[12.5px]"
+                  onClick={async () => {
+                    await api.project.close()
+                    set({ project: null, dialog: null })
+                  }}
+                >
+                  Close book
+                </button>
+              </div>
+            </Section>
+          )}
+
+          <DevicesSection />
+          <UpdatesSection />
+
+          <Section id="about" title="About">
+            <Row label={`Novel Coder ${version}`} hint="An AI writing studio for novelists, powered by Claude Code and Codex.">
+              <button className="btn text-[12.5px]" onClick={() => openWhatsNew()}>
+                What's new in this version
+              </button>
+            </Row>
+          </Section>
+        </div>
       </div>
     </Modal>
   )
@@ -492,8 +613,8 @@ function DevicesSection() {
   const [busy, setBusy] = useState<'save' | 'load' | null>(null)
   const refresh = () => void api.aisync.status().then(setSt)
   useEffect(refresh, [project?.root])
-  if (!project || !st) return null
-  const others = st.devices.filter((d) => !d.thisDevice)
+  if (!project) return null
+  const others = st?.devices.filter((d) => !d.thisDevice) ?? []
 
   const run = async (which: 'save' | 'load') => {
     setBusy(which)
@@ -514,44 +635,39 @@ function DevicesSection() {
   }
 
   return (
-    <>
-      <h3 className="mb-2 mt-5 section-label">Devices &amp; AI memory</h3>
-      <div className="rounded-lg border border-line bg-panel2 p-3 text-[12.5px]" data-testid="devices">
-        <p className="mb-2 text-muted">
+    <Section id="devices" title="Devices & AI memory">
+      <div data-testid="devices">
+        <p className="mb-1 text-[12.5px] leading-relaxed text-faint">
           The AI's memory and your chats for this book are kept in the book's folder, so if it's in cloud storage they follow you to your other devices. Novel Coder saves them after each reply and loads them when you open the book.
         </p>
-        <div className="mb-3 grid grid-cols-[130px_1fr] gap-y-1">
-          <span className="text-faint">This device</span>
-          <span>
-            {st.thisDevice} · saved {ago(st.lastSave)}
-          </span>
-          <span className="text-faint">Other devices</span>
-          <span>{others.length ? others.map((d) => `${d.name} (saved ${ago(d.lastSave)})`).join(', ') : 'None yet'}</span>
-          <span className="text-faint">In the book</span>
-          <span>
-            {st.chats} chat{st.chats === 1 ? '' : 's'}, {st.memoryNotes} memory note{st.memoryNotes === 1 ? '' : 's'}
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-2">
+        {st && (
+          <>
+            <Row label="This device" hint={`${st.thisDevice}, saved ${ago(st.lastSave)}`} />
+            <Row label="Other devices" hint={others.length ? others.map((d) => `${d.name} (saved ${ago(d.lastSave)})`).join(', ') : 'None yet'} />
+            <Row label="In the book" hint={`${st.chats} chat${st.chats === 1 ? '' : 's'} and ${st.memoryNotes} memory note${st.memoryNotes === 1 ? '' : 's'}`}>
+              <button
+                className="btn text-[12.5px]"
+                disabled={st.memoryNotes === 0}
+                onClick={() => {
+                  set({ dialog: null })
+                  openTab({ kind: 'file', path: `${st.memoryDir}/MEMORY.md` })
+                }}
+              >
+                <FileText size={13} /> Open the AI's memory
+              </button>
+            </Row>
+          </>
+        )}
+        <div className="mt-3 flex flex-wrap gap-2">
           <button className="btn text-[12.5px]" disabled={!!busy} onClick={() => void run('save')}>
             <FileDown size={13} /> {busy === 'save' ? 'Saving…' : 'Save now'}
           </button>
           <button className="btn text-[12.5px]" disabled={!!busy} onClick={() => void run('load')}>
             <FolderOpen size={13} /> {busy === 'load' ? 'Loading…' : 'Load now'}
           </button>
-          <button
-            className="btn text-[12.5px]"
-            disabled={st.memoryNotes === 0}
-            onClick={() => {
-              set({ dialog: null })
-              openTab({ kind: 'file', path: `${st.memoryDir}/MEMORY.md` })
-            }}
-          >
-            <FileText size={13} /> Open the AI's memory
-          </button>
         </div>
       </div>
-    </>
+    </Section>
   )
 }
 
@@ -576,12 +692,15 @@ function UpdatesSection() {
                   ? `Couldn't update: ${s.message}`
                   : `Version ${s.current}. Updates are checked each time Novel Coder opens.`
   return (
-    <>
-      <h3 className="mb-2 mt-5 section-label">Updates</h3>
-      <div className="flex items-center gap-3 rounded-lg border border-line bg-panel2 p-3">
-        <p className={`flex-1 text-[12.5px] ${s.state === 'error' ? 'text-err' : 'text-muted'}`} data-testid="update-line">
-          {line}
-        </p>
+    <Section id="updates" title="Updates">
+      <Row
+        label={s.state === 'available' || s.state === 'downloaded' ? 'An update is ready' : 'Novel Coder updates'}
+        hint={
+          <span className={s.state === 'error' ? 'text-err' : ''} data-testid="update-line">
+            {line}
+          </span>
+        }
+      >
         {s.state === 'available' && (
           <button className="btn btn-primary text-[12.5px]" onClick={() => void api.updates.download()}>
             <FileDown size={13} /> Update now
@@ -608,8 +727,8 @@ function UpdatesSection() {
             Check for updates
           </button>
         )}
-      </div>
-    </>
+      </Row>
+    </Section>
   )
 }
 

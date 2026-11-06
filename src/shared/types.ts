@@ -40,6 +40,22 @@ export interface BookInfo {
   premise?: string
 }
 
+/** What the Welcome shelf shows for a recently opened book (read without opening it). */
+export interface ShelfBook {
+  root: string
+  /** False when the folder has been moved or deleted. */
+  exists: boolean
+  title: string
+  author: string
+  genre: string
+  words: number
+  targetWords: number
+  scenes: number
+  premise?: string
+  seriesTitle?: string
+  seriesNumber?: number
+}
+
 export interface SeriesInfo {
   root: string
   config: SeriesConfig

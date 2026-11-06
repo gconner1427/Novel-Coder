@@ -32,7 +32,17 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: 'A calmer chat',
         body:
-          "While the AI works you see each step in plain words (Reading Dusk Harvest, Searched for “lantern”, Writing The Ladder). When it's done they fold into one line, like “Read 2 files and edited Dusk Harvest”, so the conversation stays easy to follow. Click that line to see every step again. Edits show the scene's name, how many words changed, and a preview set in your book's typeface. Requests to approve edits, plans and questions are clearer cards, such as “Claude wants to edit Dusk Harvest”."
+          "While the AI works you see each step in plain words (Reading Dusk Harvest, Searched for “lantern”, Writing The Ladder). When it's done they fold into one line, like “Read 2 files and edited Dusk Harvest”, so the conversation stays easy to follow. Click that line to see every step again. Edits show the scene's name, how many words changed, and a preview set in your book's typeface. Requests to approve edits, plans and questions are clearer cards, such as “Claude wants to edit Dusk Harvest”.”
+      },
+      {
+        title: 'Your library',
+        body:
+          “The start screen is now a bookshelf. Each of your books has its own cloth-bound cover with its title and author, how many words you've written and how close you are to your target. Click a cover to open the book. If a book's folder has moved you'll see it marked, and you can take any book off the shelf without touching its files.”
+      },
+      {
+        title: 'Simpler settings',
+        body:
+          “Settings is now one page with a menu down the side: Accounts, Appearance, This book, Devices & AI memory, Updates and About. Theme and editor font are one-click choices, and you can now set the book's target length and daily goal there too. Changes to a book's settings show a Save bar so nothing is lost by accident.”
       }
     ]
   },

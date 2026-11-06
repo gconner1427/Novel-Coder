@@ -12,6 +12,7 @@ import {
   listChapters,
   loadConfig,
   loadProject,
+  shelfBook,
   readScene,
   readText,
   resolveInside,
@@ -219,6 +220,7 @@ function registerIpc() {
   handle('project:open', (dir: string) => openProject(dir))
   handle('project:create', async (dir: string, opts: CreateOptions) => openProject(createProject(dir, opts)))
   handle('project:current', () => (root ? loadProject(root) : null))
+  handle('project:shelf', () => getSettings().recent.map(shelfBook))
   handle('project:close', async () => {
     engine?.close()
     engine = null

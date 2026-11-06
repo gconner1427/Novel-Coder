@@ -15,6 +15,7 @@ import {
   readScene,
   resolveInside,
   scaffoldProject,
+  shelfBook,
   searchBible,
   upsertBibleEntry,
   writeScene
@@ -125,5 +126,22 @@ describe('export', () => {
     expect(r.words).toBe(8)
     if (fmt === 'md') expect(fs.readFileSync(r.file, 'utf8')).toContain('# The Glass Harbour')
     if (fmt !== 'md') expect(fs.readFileSync(r.file).subarray(0, 2).toString()).toBe('PK') // zip container
+  })
+})
+
+describe('shelf', () => {
+  it('summarises a book for the Welcome shelf without opening it', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'novel-shelf-'))
+    const root = path.join(dir, 'Shelf Book')
+    scaffoldProject(root, { title: 'The Glass Road', author: 'Ada Writer', genre: 'Fantasy', premise: 'A road made of memory.' })
+    writeScene(root, 'manuscript/01-chapter-one/01-start.md', { title: 'Start', status: 'drafted' }, 'One two three four five.')
+    const b = shelfBook(root)
+    expect(b).toMatchObject({ exists: true, title: 'The Glass Road', author: 'Ada Writer', genre: 'Fantasy', words: 5, scenes: 2 }) // the scaffold's empty opening scene + ours
+    expect(b.seriesTitle).toBeUndefined()
+  })
+
+  it('marks a moved or deleted folder instead of throwing', () => {
+    const b = shelfBook(path.join(os.tmpdir(), 'novel-shelf-does-not-exist', 'Gone Book'))
+    expect(b).toMatchObject({ exists: false, title: 'Gone Book', words: 0 })
   })
 })

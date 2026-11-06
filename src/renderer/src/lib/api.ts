@@ -14,6 +14,7 @@ import type {
   PermissionMode,
   PermissionResponse,
   ProjectSnapshot,
+  ShelfBook,
   SceneInfo,
   SceneMeta,
   SendOptions,
@@ -93,6 +94,8 @@ export interface NovelApi {
     open(dir: string): Promise<ProjectSnapshot>
     create(dir: string, opts: ScaffoldOptions): Promise<ProjectSnapshot>
     current(): Promise<ProjectSnapshot | null>
+    /** Recently opened books, newest first, summarised for the Welcome shelf. */
+    shelf(): Promise<ShelfBook[]>
     close(): Promise<void>
     readFile(rel: string): Promise<string>
     writeFile(rel: string, text: string): Promise<void>
