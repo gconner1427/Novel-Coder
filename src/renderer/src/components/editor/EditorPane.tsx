@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
-import { X, FileText, BarChart3, LayoutGrid, Sparkles, Eye, AlignLeft, MessageSquareQuote, ShieldCheck, Wand2, FolderOpen, Footprints, User, MapPin, Clock, ChevronDown, BookOpen } from 'lucide-react'
+import { X, FileText, BarChart3, LayoutGrid, Sparkles, Eye, AlignLeft, MessageSquareQuote, ShieldCheck, Wand2, FolderOpen, Footprints, User, MapPin, Clock, ChevronDown, BookOpen, FileCode2, AlertTriangle } from 'lucide-react'
 import { Dropdown, StatusPill, docTitle } from '../ui'
 import { api } from '../../lib/api'
 import { useStore, tabKey, type Tab } from '../../store'
@@ -91,6 +91,10 @@ function DocEditor({ path }: { path: string }) {
   const [selection, setSelection] = useState('')
   const [focusMode, setFocusMode] = useState(false)
   const [indent, setIndent] = useState(() => localStorage.getItem('novelcoder.indent') === '1')
+  // Plain-text editing for Markdown files: by choice, or forced when the formatted editor can't show
+  // everything in the file (saving from it would then delete what it couldn't show).
+  const [plain, setPlain] = useState(false)
+  const [lossy, setLossy] = useState(false)
   const lastSaved = useRef<string>('')
   const latest = useRef({ data, body })
   latest.current = { data, body }
@@ -202,7 +206,7 @@ function DocEditor({ path }: { path: string }) {
     <div className={`flex h-full flex-col ${focusMode ? 'focus-mode' : ''}`}>
       {/* toolbar */}
       <div className="@container flex min-h-11 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-line bg-panel/60 px-3 py-1.5" data-testid="doc-toolbar">
-        {isMd && <FormatBar editor={editorInst} />}
+        {isMd && !plain && <FormatBar editor={editorInst} />}
         <div className="flex-1" />
         {selection && (
           <button className="btn anim-fade py-1 text-[12px]" title="Quote the selection into the chat" onClick={quoteSelection}>
@@ -252,9 +256,27 @@ function DocEditor({ path }: { path: string }) {
             <button className={`icon-btn h-7 w-7 ${focusMode ? 'bg-panel2 text-accent' : ''}`} title="Focus mode (dims all but the current paragraph)" aria-pressed={focusMode} onClick={() => setFocusMode(!focusMode)}>
               <Eye size={14} />
             </button>
+            <button
+              className={`icon-btn h-7 w-7 ${plain ? 'bg-panel2 text-accent' : ''}`}
+              title={lossy ? 'This file can only be edited as plain text' : plain ? 'Back to the formatted editor' : 'Edit as plain text (Markdown)'}
+              aria-pressed={plain}
+              disabled={lossy}
+              onClick={() => setPlain(!plain)}
+            >
+              <FileCode2 size={14} />
+            </button>
           </div>
         )}
       </div>
+
+      {lossy && (
+        <div className="flex items-start gap-2.5 border-b border-warn/30 bg-warn/[0.08] px-4 py-2 text-[12.5px]" data-testid="plain-text-notice">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warn" />
+          <span>
+            This file has formatting the editor can't display yet, so it's open as plain text to keep everything in it safe. You can still edit it here; Markdown marks like <code>**bold**</code> and <code>| tables |</code> show as typed.
+          </span>
+        </div>
+      )}
 
       {conflict && (
         <div className="flex items-center gap-3 border-b border-warn/40 bg-warn/10 px-4 py-2 text-[12.5px]">
@@ -273,7 +295,7 @@ function DocEditor({ path }: { path: string }) {
           {isScene && <SceneHeader data={data} setField={setField} pov={project.config.pov} characters={project.bible.filter((b) => b.kind === 'characters').map((b) => b.name)} />}
           {isBible && <BibleHeader data={data} setField={setField} />}
           {isMd && !isScene && !isBible && Object.keys(data).length > 0 && <GenericHeader data={data} setField={setField} />}
-          {isMd ? (
+          {isMd && !plain ? (
             <ProseEditor
               value={body}
               version={version}
@@ -286,10 +308,16 @@ function DocEditor({ path }: { path: string }) {
                 schedule()
               }}
               onSelectionChange={setSelection}
+              onLossy={(l) => {
+                if (!l) return
+                setLossy(true)
+                setPlain(true)
+              }}
             />
           ) : (
             <textarea
-              className="h-[75vh] w-full resize-none rounded-md border border-line bg-panel p-3 font-[var(--font-code)] text-[13px] outline-none"
+              data-testid="plain-text-editor"
+              className="h-[75vh] w-full resize-none rounded-lg border border-line bg-panel p-4 font-[var(--font-code)] text-[13px] leading-relaxed outline-none focus:border-accent/40"
               value={body}
               spellCheck={false}
               onChange={(e) => {

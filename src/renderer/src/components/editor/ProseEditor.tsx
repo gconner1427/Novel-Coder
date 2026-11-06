@@ -3,7 +3,24 @@ import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from '@tiptap/markdown'
 import Placeholder from '@tiptap/extension-placeholder'
+import { TableKit } from '@tiptap/extension-table'
 import { Bold, Italic, Heading2, Quote, Minus, List, Undo2, Redo2 } from 'lucide-react'
+
+/** Just the words and numbers, so formatting differences don't count but missing text does. */
+const textOf = (md: string) => md.replace(/[^\p{L}\p{N}]+/gu, '').toLowerCase()
+
+/** True when the editor would drop text from this Markdown (something it can't show), so saving from it would lose writing. */
+export function editorLosesText(original: string, fromEditor: string): boolean {
+  return textOf(original) !== textOf(fromEditor)
+}
+
+/**
+ * The editor's Markdown. Table cells come out with "&" written as "&amp;"; turn that back into a plain "&"
+ * (unless it would then read as an entity like "&copy;") so saving a timeline doesn't litter it with "&amp;".
+ */
+export function editorMarkdown(editor: Editor): string {
+  return editor.getMarkdown().replace(/&amp;(?![a-zA-Z][a-zA-Z0-9]*;|#\d+;|#x[0-9a-fA-F]+;)/g, '&')
+}
 
 export interface ProseEditorHandle {
   editor: Editor | null
@@ -18,8 +35,11 @@ export function ProseEditor({
   onSelectionChange,
   editorRef,
   onEditor,
+  onLossy,
   className = ''
 }: {
+  /** Called after each load with whether the editor dropped any of the file's text. */
+  onLossy?: (lossy: boolean) => void
   onEditor?: (e: Editor | null) => void
   value: string
   version: number
@@ -36,11 +56,11 @@ export function ProseEditor({
   const loading = useRef(false)
 
   const editor = useEditor({
-    extensions: [StarterKit.configure({ link: { openOnClick: false } }), Markdown, Placeholder.configure({ placeholder })],
+    extensions: [StarterKit.configure({ link: { openOnClick: false } }), TableKit.configure({ table: { resizable: false } }), Markdown, Placeholder.configure({ placeholder })],
     content: value,
     contentType: 'markdown',
     onUpdate: ({ editor }) => {
-      if (!loading.current) changeRef.current(editor.getMarkdown())
+      if (!loading.current) changeRef.current(editorMarkdown(editor))
     },
     onSelectionUpdate: ({ editor }) => {
       const { from, to } = editor.state.selection
@@ -59,6 +79,7 @@ export function ProseEditor({
     loading.current = true
     editor.commands.setContent(value, { contentType: 'markdown', emitUpdate: false })
     loading.current = false
+    onLossy?.(editorLosesText(value, editorMarkdown(editor)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version, editor])
 

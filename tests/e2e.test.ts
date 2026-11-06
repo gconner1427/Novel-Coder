@@ -171,6 +171,49 @@ describe.skipIf(!E2E)('Novel Coder app', () => {
     }, 300000)
   }
 
+  it('shows tables (like the timeline) and keeps them when the file is edited', async () => {
+    const rel = 'bible/timeline.md'
+    const rows = [
+      ['About 2020–21 (seventh grade)', 'A teacher times Wren twice because he thinks he hit the button wrong.', 'Ch. 1, Sc. 2 (mentioned)'],
+      ['Wednesday, March 4, 6:51 a.m.', "Wren wakes in the orchard & counts \"one hundred\" lanterns; she's late.", 'Ch. 1, Sc. 1 & 4']
+    ]
+    const table = (title: string) => `## ${title}\n\n| When | Event | Chapter |\n|------|-------|---------|\n${rows.map((r) => `| ${r.join(' | ')} |`).join('\n')}\n`
+    fs.writeFileSync(path.join(root, rel), `# Timeline for this book\n\nSeries-wide events go elsewhere.\n\n${table('Before Chapter 1')}\n${table('Chapter 1')}`)
+    await page.click('button[title="Story Bible"]')
+    await page.click('text=Timeline')
+    await page.waitForSelector('.ProseMirror table', { timeout: 10000 })
+    expect(await page.locator('.ProseMirror table').count()).toBe(2)
+    expect(await page.getByTestId('plain-text-notice').count()).toBe(0)
+    expect(await page.locator('.ProseMirror').innerText()).toContain('counts "one hundred" lanterns')
+    await page.screenshot({ path: path.join(shots, '06c-timeline-tables.png') })
+    // Edit the text above the tables; the saved file must still have every row, with "&" left as "&".
+    await page.locator('.ProseMirror p', { hasText: 'Series-wide' }).click()
+    await page.keyboard.press('End')
+    await page.keyboard.type(' Edited here.')
+    await expect.poll(() => fs.readFileSync(path.join(root, rel), 'utf8'), { timeout: 5000 }).toContain('Edited here.')
+    const saved = fs.readFileSync(path.join(root, rel), 'utf8')
+    for (const r of rows) for (const cell of r) expect(saved).toContain(cell)
+    expect(saved).not.toContain('&amp;')
+    expect(saved.match(/\| When/g)).toHaveLength(2)
+  })
+
+  it('opens files with formatting the editor cannot show as plain text, so nothing is lost', async () => {
+    const rel = 'notes/odd.md'
+    fs.writeFileSync(path.join(root, rel), '# Odd note\n\nBefore.\n\n<!-- a hidden reminder for later -->\n\n- [ ] a task list item\n')
+    await page.click('button[title="Outline"]')
+    await page.click('text=Odd')
+    await page.getByTestId('plain-text-notice').waitFor({ timeout: 10000 })
+    const box = page.getByTestId('plain-text-editor')
+    expect(await box.inputValue()).toContain('<!-- a hidden reminder for later -->')
+    await box.click()
+    await page.keyboard.press('Control+End')
+    await page.keyboard.type('\nAdded line.')
+    await expect.poll(() => fs.readFileSync(path.join(root, rel), 'utf8'), { timeout: 5000 }).toContain('Added line.')
+    const saved = fs.readFileSync(path.join(root, rel), 'utf8')
+    expect(saved).toContain('<!-- a hidden reminder for later -->')
+    expect(saved).toContain('- [ ] a task list item')
+  })
+
   it('reads the whole manuscript and a single chapter, and jumps back to edit a scene', async () => {
     await page.click('button[title="Manuscript"]')
     await page.click('button[title="Read the whole manuscript"]')

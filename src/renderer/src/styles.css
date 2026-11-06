@@ -392,15 +392,56 @@ select {
   color: var(--faint);
   letter-spacing: 0.4em;
 }
-.prose-editor .ProseMirror table {
+/* Tables (timelines, notes) in the editor and the reading view: interface type, compact, scroll when wide. */
+.prose-editor .tableWrapper {
+  overflow-x: auto;
+  margin: 0.4em 0 1.4em;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+}
+.prose-editor .ProseMirror table,
+.reading table {
+  width: 100%;
   border-collapse: collapse;
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-weight: 400;
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+.reading table {
+  border: 1px solid var(--line-strong);
+  margin: 0.4em 0 1.4em;
 }
 .prose-editor .ProseMirror td,
-.prose-editor .ProseMirror th {
+.prose-editor .ProseMirror th,
+.reading td,
+.reading th {
   border: 1px solid var(--line);
-  padding: 4px 8px;
+  padding: 7px 11px;
+  vertical-align: top;
+  text-align: left;
+  min-width: 90px;
+}
+.prose-editor .ProseMirror th,
+.reading th {
+  background: var(--panel2);
+  font-weight: 600;
+  color: var(--fg);
+}
+.prose-editor .ProseMirror tr:first-child > *,
+.reading tr:first-child > * {
+  border-top: none;
+}
+.prose-editor .ProseMirror td p,
+.prose-editor .ProseMirror th p,
+.prose-editor.indent .ProseMirror td p,
+.prose-editor.indent .ProseMirror th p {
+  margin: 0;
+  text-indent: 0;
+}
+.prose-editor .ProseMirror .selectedCell {
+  background: var(--sel);
 }
 .prose-editor .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
