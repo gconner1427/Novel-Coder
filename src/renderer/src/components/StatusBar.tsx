@@ -63,7 +63,7 @@ export function StatusBar() {
       <span className="flex items-center gap-1.5">
         <EngineDot engine={engine} size={6} />
         <span className="text-muted">{ENGINE_LABEL[engine]}</span>
-        {mode === 'ask' ? 'Ask before edits' : mode === 'acceptEdits' ? 'Auto-accept edits' : mode === 'plan' ? 'Plan mode' : 'Full auto'}
+        {mode === 'ask' ? engine === 'codex' ? 'Review only' : 'Ask before edits' : mode === 'acceptEdits' ? 'Auto-accept edits' : mode === 'plan' ? 'Plan mode' : 'Full auto'}
         {busy && <span className="text-accent">· working…</span>}
       </span>
     </footer>

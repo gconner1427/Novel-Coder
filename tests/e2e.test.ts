@@ -120,6 +120,43 @@ describe.skipIf(!E2E)('Novel Coder app', () => {
     await page.setViewportSize({ width: 1500, height: 920 })
   })
 
+  it('loads Codex models and filters effort choices using its runtime', async () => {
+    const catalog = await page.evaluate(() => window.novel.engine.codexModels())
+    // Codex can refresh its cached catalog between processes. Give the picker the exact
+    // runtime snapshot checked here, rather than comparing two independent discoveries.
+    await app.evaluate(({ ipcMain }, snapshot) => {
+      ipcMain.removeHandler('engine:codexModels')
+      ipcMain.handle('engine:codexModels', () => snapshot)
+    }, catalog)
+    await page.click('[role=radio]:has-text("Codex")')
+    const defaultModel = catalog.models.find((m) => m.id === catalog.defaultModel)
+    expect(defaultModel).toBeTruthy()
+    await page.click('button:has-text("Default model")')
+    await page.getByText(`Codex default: ${catalog.defaultModel}`, { exact: true }).waitFor()
+    for (const model of catalog.models) expect(await page.getByText(model.displayName, { exact: true }).last().isVisible()).toBe(true)
+    const modelMenu = page.locator('.surface-pop')
+    await modelMenu.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)))
+    await page.screenshot({ path: path.join(shots, '03c-codex-models.png') })
+    expect(await modelMenu.locator('button').count(), JSON.stringify({ expected: catalog.models.map((m) => m.id), shown: await modelMenu.innerText() })).toBe(catalog.models.length + 1)
+    await page.getByText(defaultModel!.displayName, { exact: true }).last().click()
+    await page.click('button:has-text("Effort: auto")')
+    const effortMenu = page.locator('.surface-pop')
+    await effortMenu.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)))
+    expect(await effortMenu.locator('button').count()).toBe(defaultModel!.supportedReasoningEfforts.length + 1)
+    for (const effort of defaultModel!.supportedReasoningEfforts) expect(await effortMenu.getByText(effort.reasoningEffort, { exact: true }).isVisible()).toBe(true)
+    await page.screenshot({ path: path.join(shots, '03d-codex-efforts.png') })
+    const selectedEffort = defaultModel!.supportedReasoningEfforts.at(-1)!.reasoningEffort
+    await effortMenu.getByText(selectedEffort, { exact: true }).click()
+    const prefs = await page.evaluate(() => JSON.parse(localStorage.getItem('novelcoder.enginePrefs')!))
+    expect(prefs.codex).toEqual({ model: defaultModel!.id, effort: selectedEffort })
+    await page.click(`button:has-text("Effort: ${selectedEffort}")`)
+    await page.locator('.surface-pop').getByText('Auto', { exact: true }).click()
+    await page.click(`button:has-text("${defaultModel!.id}")`)
+    await page.locator('.surface-pop').getByText('Default model', { exact: true }).click()
+    await page.waitForSelector('footer >> text=Review only')
+    await page.click('[role=radio]:has-text("Claude")')
+  })
+
   it('shows Devices & AI memory in Settings and saves to the book', async () => {
     await page.click('button[title^="Settings"]')
     const box = page.getByTestId('devices')

@@ -8,7 +8,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { spawn, execFileSync } from 'node:child_process'
 import type { AuthStatus } from '@shared/types'
-import { resolvePackageFile } from '../engines/engine'
+import { codexExe, getCodexAccount } from './codexRuntime'
+export { codexExe } from './codexRuntime'
 
 export const CLAUDE_INSTALL_URL = 'https://code.claude.com/docs/en/setup'
 
@@ -53,18 +54,15 @@ export function claudeExe(): string | undefined {
   return candidates.find(isFile)
 }
 
-export function codexExe(): string | undefined {
-  return onPath('codex').find((p) => /\.(cmd|exe)$/i.test(p)) ?? resolvePackageFile('@openai/codex-win32-x64', 'vendor/x86_64-pc-windows-msvc/bin/codex.exe')
-}
-
-export function getAuthStatus(): AuthStatus {
+export async function getAuthStatus(): Promise<AuthStatus> {
   const claudeConfig = process.env.CLAUDE_CONFIG_DIR ?? path.join(os.homedir(), '.claude')
-  const codexHome = process.env.CODEX_HOME ?? path.join(os.homedir(), '.codex')
   const cExe = claudeExe()
   const xExe = codexExe()
   const claudeLogged =
     fs.existsSync(path.join(claudeConfig, '.credentials.json')) || !!process.env.CLAUDE_CODE_OAUTH_TOKEN || !!process.env.ANTHROPIC_API_KEY
-  const codexLogged = fs.existsSync(path.join(codexHome, 'auth.json')) || !!process.env.OPENAI_API_KEY
+  const codexAccount = xExe
+    ? await getCodexAccount().catch((e) => ({ loggedIn: false, detail: `Could not check Codex sign-in: ${(e as Error).message}` }))
+    : { loggedIn: false, detail: 'The bundled Codex runtime is missing. Reinstall Novel Coder.' }
   return {
     claude: {
       installed: !!cExe,
@@ -77,8 +75,7 @@ export function getAuthStatus(): AuthStatus {
     },
     codex: {
       installed: !!xExe,
-      loggedIn: codexLogged,
-      detail: codexLogged ? 'Signed in with your ChatGPT account' : 'Not signed in. Click "Log in to ChatGPT".'
+      ...codexAccount
     }
   }
 }

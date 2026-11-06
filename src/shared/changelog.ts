@@ -17,8 +17,12 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '0.3.1',
-    summary: 'Read your chapters and your whole manuscript as one continuous text.',
+    summary: 'Read your whole book in one place, a tidier story bible, Codex that follows its own settings, and an app that opens the way you left it.',
     items: [
+      {
+        title: 'Codex settings match your runtime',
+        body: 'The Codex model menu now loads from the bundled Codex runtime, and effort choices follow the selected model. Default and Auto respect your Codex configuration, including in resumed chats. Sign-in status is checked with Codex itself. Review only and Plan mode keep both project files and novel tools read-only; select Auto-accept edits when you want Codex to make changes.'
+      },
       {
         title: 'Read a whole chapter or the whole book',
         body:

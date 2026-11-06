@@ -2,9 +2,11 @@
 // (ChatGPT Plus/Pro subscription). One Codex thread per conversation; each send is one turn.
 import path from 'node:path'
 import { Codex, type Thread, type ThreadEvent, type ThreadItem, type ThreadOptions } from '@openai/codex-sdk'
-import type { PermissionMode, PermissionResponse, SendOptions } from '@shared/types'
+import type { CodexCatalog, PermissionMode, PermissionResponse, SendOptions } from '@shared/types'
+import { codexAutoEffort, compatibleCodexEffort } from '@shared/codexModels'
 import { createSnapshot, fileAtSnapshot } from '@shared/snapshots'
-import { type Emit, type Engine, type EngineStartOptions, mcpServerSpec, readFileOrUndefined, resolvePackageFile } from './engine'
+import { type Emit, type Engine, type EngineStartOptions, mcpServerSpec, readFileOrUndefined, SAFE_NOVEL_TOOLS } from './engine'
+import { codexExe, getCodexCatalog } from '../services/codexRuntime'
 import { BRAINSTORM_SYSTEM_APPEND, NOVEL_SYSTEM_APPEND, SUBAGENTS } from './prompts'
 
 const PLAN_PREFIX =
@@ -21,10 +23,12 @@ export class CodexEngine implements Engine {
   private effort?: string
   private abort?: AbortController
   private _busy = false
+  private closed = false
   private firstTurn: boolean
   private announcedSession = false
   private brainstorm: boolean
   private extraDirs?: string[]
+  private catalog: CodexCatalog | null = null
 
   get busy() {
     return this._busy
@@ -39,19 +43,29 @@ export class CodexEngine implements Engine {
     this.firstTurn = !opts.resumeSessionId
     this.brainstorm = opts.mode === 'brainstorm'
     this.extraDirs = opts.extraDirs
-    const mcp = mcpServerSpec(opts.root)
-    const packaged = import.meta.dirname.includes('app.asar')
-    this.codex = new Codex({
-      codexPathOverride: packaged ? resolvePackageFile('@openai/codex-win32-x64', 'vendor/x86_64-pc-windows-msvc/bin/codex.exe') : undefined,
-      // Our own trusted server: pre-approve its tools (Codex otherwise rejects MCP calls under approval "never").
-      config: this.brainstorm
-        ? {}
-        : { mcp_servers: { novel: { command: mcp.command, args: mcp.args, env: mcp.env, default_tools_approval_mode: 'approve' } } }
-    })
+    this.codex = this.createCodex()
     this.thread = opts.resumeSessionId
       ? this.codex.resumeThread(opts.resumeSessionId, this.threadOptions())
       : this.codex.startThread(this.threadOptions())
     if (opts.resumeSessionId) this.emitSession(opts.resumeSessionId)
+  }
+
+  private createCodex(): Codex {
+    const exe = codexExe()
+    if (!exe) throw new Error('The bundled Codex runtime was not found. Reinstall Novel Coder.')
+    const mcp = mcpServerSpec(this.root)
+    const readOnly = this.mode === 'ask' || this.mode === 'plan'
+    return new Codex({
+      codexPathOverride: exe,
+      // Our own trusted server: pre-approve its tools (Codex otherwise rejects MCP calls under approval "never").
+      config: this.brainstorm
+        ? {}
+        : { mcp_servers: { novel: {
+          command: mcp.command, args: mcp.args, env: mcp.env, default_tools_approval_mode: 'approve',
+          // Filesystem sandboxing does not constrain writes performed by an MCP server.
+          ...(readOnly ? { enabled_tools: SAFE_NOVEL_TOOLS.filter((t) => t !== 'snapshot_create' && t !== 'report_write') } : {})
+        } } }
+    })
   }
 
   private threadOptions(): ThreadOptions {
@@ -59,9 +73,9 @@ export class CodexEngine implements Engine {
       workingDirectory: this.root,
       additionalDirectories: this.extraDirs,
       skipGitRepoCheck: true,
-      model: this.model && this.model !== 'default' ? this.model : undefined,
-      modelReasoningEffort: (this.effort as ThreadOptions['modelReasoningEffort']) || undefined,
-      sandboxMode: this.mode === 'plan' ? 'read-only' : this.mode === 'auto' ? 'danger-full-access' : 'workspace-write',
+      model: this.model && this.model !== 'default' ? this.model : this.catalog?.defaultModel,
+      modelReasoningEffort: (this.effort || codexAutoEffort(this.catalog, this.model)) as ThreadOptions['modelReasoningEffort'],
+      sandboxMode: this.mode === 'plan' || this.mode === 'ask' ? 'read-only' : this.mode === 'auto' ? 'danger-full-access' : 'workspace-write',
       approvalPolicy: 'never',
       webSearchMode: 'live',
       networkAccessEnabled: this.mode === 'auto'
@@ -76,52 +90,64 @@ export class CodexEngine implements Engine {
   /** Re-open the same thread with new options (model / sandbox changes). */
   private reopen() {
     const id = this.thread.id
+    this.codex = this.createCodex()
     if (id) this.thread = this.codex.resumeThread(id, this.threadOptions())
     else this.thread = this.codex.startThread(this.threadOptions())
   }
 
   async send(msg: SendOptions) {
+    if (this.closed) return
     if (this._busy) {
       this.emit({ type: 'status', text: 'Codex is still working; your message will be sent when it finishes.' })
-      while (this._busy) await new Promise((r) => setTimeout(r, 250))
+      while (this._busy && !this.closed) await new Promise((r) => setTimeout(r, 250))
     }
+    if (this.closed) return
     this._busy = true
+    this.abort = new AbortController()
     this.emit({ type: 'turn-start' })
-    // Codex has no per-tool approval callback in the SDK, so we checkpoint before every turn
-    // (Rewind restores it) and use that checkpoint to show before/after diffs.
-    const snap = this.mode === 'plan' || this.brainstorm ? null : await createSnapshot(this.root, 'Before Codex turn').catch(() => null)
-    const snapRef = snap ?? 'HEAD'
+    let finished = false
+    try {
+      this.catalog = await getCodexCatalog(this.root).catch(() => null)
+      if (this.abort.signal.aborted) return
+      this.effort = compatibleCodexEffort(this.catalog, this.model, this.effort || '') || undefined
+      // Reopen only between turns: a setting change must not lose the active thread's ID.
+      this.reopen()
+      // Checkpoint writable turns for Rewind and before/after diffs.
+      const snap = this.mode === 'plan' || this.mode === 'ask' || this.brainstorm ? null : await createSnapshot(this.root, 'Before Codex turn').catch(() => null)
+      const snapRef = snap ?? 'HEAD'
+      if (this.abort.signal.aborted) return
 
-    let text = msg.text
-    if (this.firstTurn && this.brainstorm) {
-      text = `${BRAINSTORM_SYSTEM_APPEND}
+      let text = msg.text
+      if (this.firstTurn && this.brainstorm) {
+        text = `${BRAINSTORM_SYSTEM_APPEND}
 
 ---
 
 ${text}`
-      this.firstTurn = false
-    } else if (this.firstTurn) {
-      const agents = Object.entries(SUBAGENTS)
-        .map(([k, v]) => `- ${k}: ${v.description}\n  Approach: ${v.prompt}`)
-        .join('\n')
-      text = `${NOVEL_SYSTEM_APPEND}\n\n## Editorial roles you can adopt when asked\n${agents}\n\n---\n\n${text}`
-      this.firstTurn = false
-    }
-    if (this.mode === 'plan') text = PLAN_PREFIX + text
+      } else if (this.firstTurn) {
+        const agents = Object.entries(SUBAGENTS)
+          .map(([k, v]) => `- ${k}: ${v.description}\n  Approach: ${v.prompt}`)
+          .join('\n')
+        text = `${NOVEL_SYSTEM_APPEND}\n\n## Editorial roles you can adopt when asked\n${agents}\n\n---\n\n${text}`
+      }
+      if (this.mode === 'plan') text = PLAN_PREFIX + text
+      if (this.mode === 'ask') text = 'REVIEW ONLY: Do not modify files. Read and discuss the project. If changes are needed, describe them and ask the author to select Auto-accept edits before applying them.\n\n' + text
 
-    const input = msg.images?.length
-      ? [{ type: 'text' as const, text }, ...msg.images.map((p) => ({ type: 'local_image' as const, path: p }))]
-      : text
+      const input = msg.images?.length
+        ? [{ type: 'text' as const, text }, ...msg.images.map((p) => ({ type: 'local_image' as const, path: p }))]
+        : text
 
-    this.abort = new AbortController()
-    try {
       const { events } = await this.thread.runStreamed(input, { signal: this.abort.signal })
-      for await (const ev of events) await this.handle(ev, snapRef)
+      for await (const ev of events) {
+        await this.handle(ev, snapRef)
+        if (ev.type === 'turn.completed' || ev.type === 'turn.failed') finished = true
+      }
     } catch (e) {
       const m = (e as Error).message ?? String(e)
       if (!/abort/i.test(m)) this.emit({ type: 'error', message: friendlyError(m) })
-      this.emit({ type: 'done', isError: true })
     } finally {
+      if (this.thread.id) this.firstTurn = false
+      if (!finished) this.emit({ type: 'done', isError: true })
       this._busy = false
       this.abort = undefined
     }
@@ -214,12 +240,14 @@ ${text}`
 
   async setPermissionMode(mode: PermissionMode) {
     this.mode = mode
-    this.reopen()
   }
 
   async setModel(model: string) {
     this.model = model
-    this.reopen()
+  }
+
+  async setEffort(effort: string) {
+    this.effort = effort || undefined
   }
 
   respondPermission(_r: PermissionResponse) {
@@ -227,12 +255,13 @@ ${text}`
   }
 
   close() {
+    this.closed = true
     this.abort?.abort()
   }
 }
 
 function friendlyError(msg: string): string {
-  if (/login|unauthori[sz]ed|401|auth/i.test(msg)) return `Codex isn't logged in (${msg}). Open Settings → Accounts and click "Log in to ChatGPT".`
+  if (/login|unauthori[sz]ed|401|auth/i.test(msg)) return `Codex isn't logged in (${msg}). Open Settings → Accounts and click "Log in" next to Codex.`
   if (/usage limit|rate limit|429/i.test(msg)) return `Codex usage limit reached for your ChatGPT plan (${msg}). Try again later or switch to Claude.`
   return msg
 }

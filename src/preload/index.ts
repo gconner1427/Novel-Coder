@@ -87,11 +87,13 @@ const api = {
     onStatus: (cb: (p: unknown) => void) => on('updates:status', cb)
   },
   engine: {
+    codexModels: inv('engine:codexModels'),
     start: inv('engine:start'),
     send: inv('engine:send'),
     interrupt: inv('engine:interrupt'),
     setMode: inv('engine:setMode'),
     setModel: inv('engine:setModel'),
+    setEffort: inv('engine:setEffort'),
     respond: inv('engine:respond'),
     close: inv('engine:close'),
     onEvent: (cb: (p: unknown) => void) => on('engine:event', cb)

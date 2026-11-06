@@ -19,6 +19,8 @@ If you already use Claude Code or the Codex CLI on this PC, you're already signe
 - Engine toggle in the title bar (Claude ⇄ Codex). Switching mid-conversation hands the transcript over to the other engine.
 - Model and effort pickers, and permission modes: Ask before edits, Auto-accept edits, Plan mode, Full auto.
   - Claude: per-tool permission prompts, plan approval cards, and clarifying-question cards.
+  - Codex: models and supported efforts come from the bundled runtime. Default/Auto follow your Codex configuration; changes apply to the next message, including resumed chats. The model catalog does not verify account access.
+  - Codex's SDK runs without per-tool prompts: **Review only** and **Plan mode** use a read-only filesystem and read-only novel tools. Select **Auto-accept edits** to allow project changes, or **Full auto** for unrestricted commands and network access.
 - Subagents: continuity-checker, blocking-checker, line-editor, developmental-editor, beta-reader.
 - Todo/plan panel, Esc to interrupt, conversation history and resume, image attachments, `@file` mentions.
 - Everything else the engines can do still works (web search, shell, MCP servers in your own config, and so on).

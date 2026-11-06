@@ -23,6 +23,7 @@ export interface Engine {
   interrupt(): Promise<void>
   setPermissionMode(mode: PermissionMode): Promise<void>
   setModel(model: string): Promise<void>
+  setEffort?(effort: string): Promise<void>
   respondPermission(r: PermissionResponse): void
   close(): void
   readonly busy: boolean

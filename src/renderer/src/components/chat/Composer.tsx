@@ -4,6 +4,7 @@ import { api } from '../../lib/api'
 import { useStore } from '../../store'
 import { Dropdown } from '../ui'
 import type { ExportFormat, PermissionMode } from '@shared/types'
+import { codexAutoEffort, codexModel } from '@shared/codexModels'
 
 const MODES: { value: PermissionMode; label: string; hint: string; icon: React.ReactNode }[] = [
   { value: 'ask', label: 'Ask before edits', hint: 'Approve each change to your files', icon: <ShieldCheck size={13} /> },
@@ -12,7 +13,7 @@ const MODES: { value: PermissionMode; label: string; hint: string; icon: React.R
   { value: 'auto', label: 'Full auto', hint: 'No prompts at all (commands, web, edits)', icon: <ShieldOff size={13} /> }
 ]
 
-const EFFORTS: Record<string, string[]> = { claude: ['', 'low', 'medium', 'high', 'xhigh', 'max'], codex: ['', 'minimal', 'low', 'medium', 'high', 'xhigh'] }
+const CLAUDE_EFFORTS = ['', 'low', 'medium', 'high', 'xhigh', 'max']
 
 export function Composer() {
   const draft = useStore((s) => s.draft)
@@ -22,6 +23,8 @@ export function Composer() {
   const mode = useStore((s) => s.mode)
   const prefs = useStore((s) => s.prefs)
   const models = useStore((s) => s.models)
+  const catalog = useStore((s) => s.codexCatalog)
+  const catalogError = useStore((s) => s.codexCatalogError)
   const commands = useStore((s) => s.commands)
   const project = useStore((s) => s.project)
   const brainstorm = useStore((s) => s.brainstorm)
@@ -30,6 +33,10 @@ export function Composer() {
   const [menuIdx, setMenuIdx] = useState(0)
   const [caret, setCaret] = useState(0)
   const ta = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (engine === 'codex') void st().refreshCodexModels()
+  }, [engine, project?.root, brainstorm?.id])
 
   useEffect(() => {
     const el = ta.current
@@ -197,7 +204,11 @@ export function Composer() {
     if (out.length) setImages((x) => [...x, ...out])
   }
 
-  const effortList = EFFORTS[engine]
+  const selectedModel = codexModel(catalog, prefs.codex.model)
+  const autoEffort = codexAutoEffort(catalog, prefs.codex.model)
+  const effortList = engine === 'claude' ? CLAUDE_EFFORTS : Array.from(new Set(['', ...(selectedModel?.supportedReasoningEfforts.map((e) => e.reasoningEffort) ?? []), ...(prefs.codex.effort ? [prefs.codex.effort] : [])]))
+  const modelList = Array.from(new Set([...models[engine], prefs[engine].model]))
+  const modes = engine === 'codex' ? MODES.map((m) => m.value === 'ask' ? { ...m, label: 'Review only', hint: 'Read and discuss; select Auto-accept edits to apply changes' } : m) : MODES
 
   return (
     <div className="shrink-0 px-3 pb-3 pt-1">
@@ -287,7 +298,7 @@ export function Composer() {
         {/* No overflow clipping here: the pickers' menus open upward out of this row. */}
         <div className="flex items-end gap-1 px-2 pb-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1">
-          <Dropdown<PermissionMode> value={mode} up options={MODES} onChange={(m) => void st().setMode(m)} />
+          <Dropdown<PermissionMode> value={mode} up options={modes} onChange={(m) => void st().setMode(m)} />
           <Dropdown<string>
             value={prefs[engine].model}
             up
@@ -297,7 +308,10 @@ export function Composer() {
                 <Cpu size={12} /> {prefs[engine].model === 'default' ? 'Default model' : prefs[engine].model}
               </>
             }
-            options={models[engine].map((m) => ({ value: m, label: m === 'default' ? 'Default model' : m, hint: m === 'default' ? 'Use the engine/account default' : undefined }))}
+            options={modelList.map((m) => {
+              const entry = engine === 'codex' ? catalog?.models.find((x) => x.id === m) : undefined
+              return { value: m, label: m === 'default' ? 'Default model' : entry?.displayName || m, hint: m === 'default' ? (engine === 'codex' && catalog?.defaultModel ? `Codex default: ${catalog.defaultModel}` : 'Use the engine/account default') : entry?.description }
+            })}
             onChange={(m) => void st().setModel(m)}
           />
           <Dropdown<string>
@@ -305,12 +319,8 @@ export function Composer() {
             up
             align="right"
             label={<span>{prefs[engine].effort ? `Effort: ${prefs[engine].effort}` : 'Effort: auto'}</span>}
-            options={effortList.map((e) => ({ value: e, label: e || 'Auto', hint: e ? undefined : 'Engine default (applies to new conversations)' }))}
-            onChange={(eff) => {
-              const p = { ...prefs, [engine]: { ...prefs[engine], effort: eff } }
-              localStorage.setItem('novelcoder.enginePrefs', JSON.stringify(p))
-              set({ prefs: p, started: null })
-            }}
+            options={effortList.map((e) => ({ value: e, label: e || 'Auto', hint: e ? (engine === 'codex' ? selectedModel?.supportedReasoningEfforts.find((x) => x.reasoningEffort === e)?.description : undefined) : engine === 'codex' ? `${autoEffort ? `Codex default: ${autoEffort}` : 'Codex default'} (applies to your next message)` : 'Engine default (applies to your next message)' }))}
+            onChange={(eff) => void st().setEffort(eff)}
           />
           </div>
           <button
@@ -334,6 +344,12 @@ export function Composer() {
           )}
         </div>
       </div>
+      {engine === 'codex' && catalogError && (
+        <div className="mt-1 flex items-center gap-2 px-2 text-[11.5px] text-faint" role="status">
+          <span title={catalogError}>Could not load Codex models. Default and custom IDs are available.</span>
+          <button className="text-accent hover:underline" onClick={() => void st().refreshCodexModels()}>Retry</button>
+        </div>
+      )}
     </div>
   )
 }

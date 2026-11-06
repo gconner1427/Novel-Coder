@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type {
   AuthStatus,
+  CodexCatalog,
   BrainstormSummary,
   IdeaFields,
   ChatItem,
@@ -12,6 +13,7 @@ import type {
   SessionSummary,
   SlashCommand
 } from '@shared/types'
+import { compatibleCodexEffort } from '@shared/codexModels'
 import { api, uid, type AppSettings, type ScaffoldOptions } from './lib/api'
 
 export type SidebarTab = 'series' | 'manuscript' | 'bible' | 'outline' | 'files' | 'history' | 'snapshots' | 'reports'
@@ -55,6 +57,8 @@ interface State {
   mode: PermissionMode
   prefs: Record<EngineId, EnginePrefs>
   models: Record<EngineId, string[]>
+  codexCatalog: CodexCatalog | null
+  codexCatalogError: string | null
   started: EngineId | null
   busy: boolean
   todos: { text: string; status: 'pending' | 'in_progress' | 'completed' }[]
@@ -83,6 +87,8 @@ interface State {
   switchEngine: (e: EngineId) => Promise<void>
   setMode: (m: PermissionMode) => Promise<void>
   setModel: (m: string) => Promise<void>
+  setEffort: (effort: string) => Promise<void>
+  refreshCodexModels: () => Promise<void>
   sendToEngine: (text: string, opts?: { images?: string[]; display?: string; resend?: boolean }) => Promise<void>
   interrupt: () => Promise<void>
   onEngineEvent: (engine: EngineId, ev: EngineEvent) => void
@@ -153,7 +159,7 @@ const loadFocusChat = () => {
 
 const DEFAULT_MODELS: Record<EngineId, string[]> = {
   claude: ['default', 'fable', 'opus', 'sonnet', 'haiku'],
-  codex: ['default', 'gpt-5.5', 'gpt-5.5-codex', 'gpt-5.5-mini']
+  codex: ['default']
 }
 
 /** Condensed transcript used when switching engines mid-conversation. */
@@ -200,6 +206,8 @@ export const useStore = create<State>((set, get) => ({
   mode: loadMode(),
   prefs: loadPrefs(),
   models: DEFAULT_MODELS,
+  codexCatalog: null,
+  codexCatalogError: null,
   started: null,
   busy: false,
   todos: [],
@@ -385,10 +393,47 @@ export const useStore = create<State>((set, get) => ({
 
   setModel: async (m) => {
     const { engine, prefs } = get()
-    const next = { ...prefs, [engine]: { ...prefs[engine], model: m } }
+    const effort = engine === 'codex' ? compatibleCodexEffort(get().codexCatalog, m, prefs[engine].effort) : prefs[engine].effort
+    const next = { ...prefs, [engine]: { model: m, effort } }
     localStorage.setItem(PREFS_KEY, JSON.stringify(next))
     set({ prefs: next })
-    if (get().started) await api.engine.setModel(m)
+    if (get().started === engine) {
+      await api.engine.setModel(m)
+      if (engine === 'codex') await api.engine.setEffort(effort)
+    }
+  },
+
+  setEffort: async (effort) => {
+    const { engine, prefs, codexCatalog } = get()
+    if (engine === 'codex') effort = compatibleCodexEffort(codexCatalog, prefs.codex.model, effort)
+    const next = { ...prefs, [engine]: { ...prefs[engine], effort } }
+    localStorage.setItem(PREFS_KEY, JSON.stringify(next))
+    set({ prefs: next })
+    if (engine === 'codex') {
+      if (get().started === 'codex') await api.engine.setEffort(effort)
+    } else {
+      // Claude's effort is a session option; resume with it on the next message.
+      set({ started: null })
+    }
+  },
+
+  refreshCodexModels: async () => {
+    const context = get().project?.root ?? get().brainstorm?.id
+    set({ codexCatalog: null, codexCatalogError: null, models: { ...get().models, codex: ['default'] } })
+    try {
+      const catalog = await api.engine.codexModels()
+      if (context !== (get().project?.root ?? get().brainstorm?.id)) return
+      const { prefs } = get()
+      const effort = compatibleCodexEffort(catalog, prefs.codex.model, prefs.codex.effort)
+      const next = { ...prefs, codex: { ...prefs.codex, effort } }
+      set({ codexCatalog: catalog, models: { ...get().models, codex: ['default', ...catalog.models.map((m) => m.id)] }, prefs: next })
+      if (effort !== prefs.codex.effort) {
+        localStorage.setItem(PREFS_KEY, JSON.stringify(next))
+        if (get().started === 'codex') await api.engine.setEffort(effort)
+      }
+    } catch (e) {
+      if (context === (get().project?.root ?? get().brainstorm?.id)) set({ codexCatalogError: (e as Error).message })
+    }
   },
 
   sendToEngine: async (text, opts = {}) => {

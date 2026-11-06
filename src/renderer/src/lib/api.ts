@@ -161,11 +161,13 @@ export interface NovelApi {
     onStatus(cb: (s: UpdateStatus) => void): () => void
   }
   engine: {
+    codexModels(): Promise<import('@shared/types').CodexCatalog>
     start(s: EngineSettings, resumeSessionId?: string): Promise<void>
     send(m: SendOptions): Promise<void>
     interrupt(): Promise<void>
     setMode(m: PermissionMode): Promise<void>
     setModel(m: string): Promise<void>
+    setEffort(e: string): Promise<void>
     respond(r: PermissionResponse): Promise<void>
     close(): Promise<void>
     onEvent(cb: (p: { engine: EngineId; ev: EngineEvent }) => void): () => void

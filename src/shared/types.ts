@@ -194,6 +194,23 @@ export interface EngineSettings {
   effort?: string
 }
 
+/** Model metadata from the same Codex runtime that runs conversations. */
+export interface CodexModel {
+  id: string
+  displayName: string
+  description: string
+  defaultReasoningEffort: string
+  supportedReasoningEfforts: { reasoningEffort: string; description: string }[]
+  isDefault: boolean
+}
+
+export interface CodexCatalog {
+  models: CodexModel[]
+  defaultModel?: string
+  /** User/project configuration override, when set. */
+  configuredEffort?: string
+}
+
 // ---------- Chat transcript (persisted per UI session) ----------
 
 export type ChatItem =

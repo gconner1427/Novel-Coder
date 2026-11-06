@@ -40,6 +40,7 @@ import type { Engine } from './engines/engine'
 import { ClaudeEngine } from './engines/claudeEngine'
 import { CodexEngine } from './engines/codexEngine'
 import { getAuthStatus, launchLogin } from './services/auth'
+import { getCodexCatalog } from './services/codexRuntime'
 import { deleteSession, expandCommand, listCommands, listReports, listSessions, loadSession, loadStats, recordWords, saveSession, streak } from './services/store'
 import { exportManuscript } from './services/exporter'
 import { ignoredByWatcher } from './services/watchfilter'
@@ -407,6 +408,7 @@ function registerIpc() {
   handle('auth:login', (e: 'claude' | 'codex') => launchLogin(e))
 
   // engine
+  handle('engine:codexModels', () => getCodexCatalog(root ?? brainstorm?.dir))
   handle('engine:start', (settings: EngineSettings, resumeSessionId?: string) => {
     const cwd = root ?? brainstorm?.dir
     if (!cwd) throw new Error('Open a novel or start a brainstorm first')
@@ -438,6 +440,7 @@ function registerIpc() {
   handle('engine:interrupt', () => engine?.interrupt())
   handle('engine:setMode', (m: PermissionMode) => engine?.setPermissionMode(m))
   handle('engine:setModel', (m: string) => engine?.setModel(m))
+  handle('engine:setEffort', (e: string) => engine?.setEffort?.(e))
   handle('engine:respond', (r: PermissionResponse) => engine?.respondPermission(r))
   handle('engine:close', () => {
     engine?.close()

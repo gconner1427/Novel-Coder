@@ -469,12 +469,12 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
                     </span>
                   }
                 >
-                  {a && !a.installed ? (
+                  {a && !a.installed && e === 'claude' ? (
                     <button className="btn text-[12.5px]" onClick={() => void api.app.openExternal('https://code.claude.com/docs/en/setup')}>
                       <LogIn size={13} /> Install Claude Code
                     </button>
                   ) : (
-                    <button className="btn text-[12.5px]" onClick={() => void api.auth.login(e)}>
+                    <button className="btn text-[12.5px]" disabled={a && !a.installed} onClick={() => void api.auth.login(e)}>
                       <LogIn size={13} /> {a?.loggedIn ? 'Re-login' : 'Log in'}
                     </button>
                   )}
