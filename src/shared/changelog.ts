@@ -28,6 +28,16 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: 'Tables show up, and nothing gets lost',
         body:
           "Tables, like the ones in your timeline, now show as proper tables in the editor and the reading view, and stay intact when you edit the file. Before, the editor hid them, and typing in that file could have removed them. If a file ever has formatting the editor can't show yet, it now opens as plain text with a note at the top, so nothing in it can be lost. You can also switch any document to plain text yourself with the new button at the right of the toolbar."
+      },
+      {
+        title: 'A tidier story bible',
+        body:
+          "In a series, the Story Bible now has All, Series and Book buttons, so you can show only the shared series entries or only this book's. Click Characters, Locations, Lore & World or Documents to fold that section away, or use the button beside the filter to fold or open them all. Searching opens every section so nothing is hidden, and Esc clears the search. New entries go into whichever bible you're showing; when you're showing both, you choose as you name it. The app remembers your filter and folded sections."
+      },
+      {
+        title: 'Your chat settings carry over',
+        body:
+          "The app now remembers your chat mode (like Full auto) when you close and reopen it, along with the engine you last used in each book and whether you had the chat in focus mode. Your model and effort choices were already remembered."
       }
     ]
   },

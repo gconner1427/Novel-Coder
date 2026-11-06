@@ -112,6 +112,45 @@ function loadPrefs(): Record<EngineId, EnginePrefs> {
   return { claude: { model: 'default', effort: '' }, codex: { model: 'default', effort: '' } }
 }
 
+// Chat choices that carry over between launches of the app.
+const MODE_KEY = 'novelcoder.permissionMode'
+const MODES: PermissionMode[] = ['ask', 'acceptEdits', 'plan', 'auto']
+function loadMode(): PermissionMode {
+  try {
+    const m = localStorage.getItem(MODE_KEY) as PermissionMode | null
+    if (m && MODES.includes(m)) return m
+  } catch {
+    /* ignore */
+  }
+  return 'ask'
+}
+const ENGINE_KEY = 'novelcoder.lastEngine'
+/** The engine last used in each book (by folder), so a book reopens with the engine you left it on. */
+function lastEngineFor(root: string): EngineId | null {
+  try {
+    const e = (JSON.parse(localStorage.getItem(ENGINE_KEY) || '{}') as Record<string, string>)[root]
+    return e === 'claude' || e === 'codex' ? e : null
+  } catch {
+    return null
+  }
+}
+function rememberEngine(root: string, e: EngineId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ENGINE_KEY) || '{}') as Record<string, string>
+    localStorage.setItem(ENGINE_KEY, JSON.stringify({ ...all, [root]: e }))
+  } catch {
+    /* ignore */
+  }
+}
+const LAYOUT_KEY = 'novelcoder.focusChat'
+const loadFocusChat = () => {
+  try {
+    return localStorage.getItem(LAYOUT_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 const DEFAULT_MODELS: Record<EngineId, string[]> = {
   claude: ['default', 'fable', 'opus', 'sonnet', 'haiku'],
   codex: ['default', 'gpt-5.5', 'gpt-5.5-codex', 'gpt-5.5-mini']
@@ -152,13 +191,13 @@ export const useStore = create<State>((set, get) => ({
   active: 'welcome',
   dialog: null,
   chatOnly: false,
-  editorHidden: false,
+  editorHidden: loadFocusChat(),
   toast: null,
 
   session: emptySession('claude'),
   sessions: [],
   engine: 'claude',
-  mode: 'ask',
+  mode: loadMode(),
   prefs: loadPrefs(),
   models: DEFAULT_MODELS,
   started: null,
@@ -187,7 +226,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   loadProject: async (p) => {
-    const engine = p.config.defaultEngine ?? 'claude'
+    const engine = lastEngineFor(p.root) ?? p.config.defaultEngine ?? 'claude'
     set({
       project: p,
       brainstorm: null,
@@ -329,11 +368,18 @@ export const useStore = create<State>((set, get) => ({
     // If the new engine already has its own session for this conversation, resume it; otherwise hand off context.
     const handoff = hasContext && !session.engineSessions[e] ? transcriptForHandoff(session.items) : null
     set({ engine: e, started: null, handoff, session: { ...session, engine: e } })
+    const root = get().project?.root
+    if (root) rememberEngine(root, e)
     get().pushNotice(`Switched to ${e === 'claude' ? 'Claude (Claude Code)' : 'Codex (ChatGPT)'}.${handoff ? ' The conversation so far will be handed over with your next message.' : ''}`)
   },
 
   setMode: async (m) => {
     set({ mode: m })
+    try {
+      localStorage.setItem(MODE_KEY, m)
+    } catch {
+      /* ignore */
+    }
     if (get().started) await api.engine.setMode(m)
   },
 
@@ -518,3 +564,13 @@ export const useStore = create<State>((set, get) => ({
     if (ev.type === 'done' || ev.type === 'error' || ev.type === 'tool-end') get().saveSession()
   }
 }))
+
+// Remember the focus-chat layout (editor hidden) between launches.
+useStore.subscribe((st, prev) => {
+  if (st.editorHidden === prev.editorHidden) return
+  try {
+    localStorage.setItem(LAYOUT_KEY, st.editorHidden ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+})

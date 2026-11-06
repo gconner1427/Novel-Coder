@@ -22,7 +22,10 @@ import {
   FileText,
   Pencil,
   ShieldCheck,
-  Library
+  Library,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  X
 } from 'lucide-react'
 import { SeriesPanel } from './SeriesPanel'
 import { api } from '../../lib/api'
@@ -309,10 +312,56 @@ function ManuscriptPanel() {
 
 // ---------------- story bible ----------------
 
-const KIND_META: Record<BibleKind, { label: string; icon: ReactNode }> = {
-  characters: { label: 'Characters', icon: <User size={13} /> },
-  locations: { label: 'Locations', icon: <MapPin size={13} /> },
-  lore: { label: 'Lore & World', icon: <ScrollText size={13} /> }
+const KIND_META: Record<BibleKind, { label: string; noun: string; icon: ReactNode }> = {
+  characters: { label: 'Characters', noun: 'character', icon: <User size={13} /> },
+  locations: { label: 'Locations', noun: 'location', icon: <MapPin size={13} /> },
+  lore: { label: 'Lore & World', noun: 'lore entry', icon: <ScrollText size={13} /> }
+}
+
+type BibleShow = 'all' | 'series' | 'book'
+
+/** Remembered per computer: which bible entries to show, and which sections are folded away. */
+const readPref = <T,>(key: string, fallback: T): T => {
+  try {
+    const v = localStorage.getItem(key)
+    return v ? (JSON.parse(v) as T) : fallback
+  } catch {
+    return fallback
+  }
+}
+const writePref = (key: string, v: unknown) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(v))
+  } catch {
+    /* storage unavailable; the choice just won't be remembered */
+  }
+}
+
+function SectionHeader({
+  open,
+  onToggle,
+  icon,
+  label,
+  count,
+  actions
+}: {
+  open: boolean
+  onToggle: () => void
+  icon: ReactNode
+  label: string
+  count?: number
+  actions?: ReactNode
+}) {
+  return (
+    <Row onClick={onToggle} actions={actions} title={open ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}>
+      <span className="flex items-center gap-1.5" role="button" aria-expanded={open}>
+        <ChevronRight size={13} className={`shrink-0 text-faint transition-transform duration-150 ${open ? 'rotate-90' : ''}`} />
+        {icon}
+        <span className="font-medium text-fg">{label}</span>
+      </span>
+      {count !== undefined && <span className="ml-auto pr-1 text-[11px] tabular-nums text-faint group-hover:hidden">{count}</span>}
+    </Row>
+  )
 }
 
 function BiblePanel() {
@@ -323,30 +372,104 @@ function BiblePanel() {
   const [q, setQ] = useState('')
   const [adding, setAdding] = useState<BibleKind | null>(null)
   const inSeries = !!project.series
-  // In a series, new entries default to the shared series bible (recurring cast and world).
-  const [scope, setScope] = useState<'book' | 'series'>('series')
-  const entries = useMemo(() => {
-    const t = q.toLowerCase()
-    return project.bible.filter((e) => !t || `${e.name} ${e.aliases.join(' ')} ${e.summary}`.toLowerCase().includes(t))
-  }, [project.bible, q])
+  const [showPref, setShowPref] = useState<BibleShow>(() => readPref('novelcoder.bibleShow', 'all'))
+  const show: BibleShow = inSeries ? showPref : 'all'
+  const [folded, setFolded] = useState<Record<string, boolean>>(() => readPref('novelcoder.bibleFolded', {}))
+  // Where a new entry goes. Showing one bible means new entries go there; showing both lets you pick (series by default).
+  const [addScope, setAddScope] = useState<'book' | 'series'>('series')
+  const scope = !inSeries ? 'book' : show === 'all' ? addScope : show
+
+  const setShow = (v: BibleShow) => {
+    setShowPref(v)
+    writePref('novelcoder.bibleShow', v)
+  }
+  const saveFolded = (next: Record<string, boolean>) => {
+    setFolded(next)
+    writePref('novelcoder.bibleFolded', next)
+  }
+  const toggle = (key: string) => saveFolded({ ...folded, [key]: !folded[key] })
+  const term = q.toLowerCase().trim()
+  const searching = term.length > 0
+  // While searching, every section opens so no match is hidden behind a fold.
+  const isOpen = (key: string) => searching || !folded[key]
+
+  const entries = useMemo(
+    () =>
+      project.bible.filter(
+        (e) => (show === 'all' || e.scope === show) && (!term || `${e.name} ${e.aliases.join(' ')} ${e.summary}`.toLowerCase().includes(term))
+      ),
+    [project.bible, term, show]
+  )
+  const counts = useMemo(
+    () => ({
+      all: project.bible.length,
+      series: project.bible.filter((e) => e.scope === 'series').length,
+      book: project.bible.filter((e) => e.scope !== 'series').length
+    }),
+    [project.bible]
+  )
   const prefix = project.series?.files[0]?.split('/')[0] ?? '..'
+  const kinds = Object.keys(KIND_META) as BibleKind[]
+  const allFolded = kinds.every((k) => folded[k]) && !!folded.docs
+
+  const docs = (
+    inSeries
+      ? [
+          ['bible/timeline.md', 'Timeline (this book)', 'book'],
+          [`${prefix}/bible/timeline.md`, 'Series timeline', 'series'],
+          [`${prefix}/bible/style-guide.md`, 'Series style guide', 'series']
+        ]
+      : [
+          ['bible/timeline.md', 'Timeline', 'book'],
+          ['bible/style-guide.md', 'Style guide', 'book']
+        ]
+  ).filter(([, label, sc]) => (show === 'all' || sc === show) && (!searching || label.toLowerCase().includes(term)))
 
   return (
     <div>
       <div className="relative mx-2 mb-2">
         <Search size={13} className="absolute left-2 top-2 text-faint" />
-        <input className="field w-full pl-7 text-[12.5px]" placeholder="Search the bible…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input
+          className="field w-full pl-7 pr-7 text-[12.5px]"
+          placeholder="Search the bible…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === 'Escape' && setQ('')}
+        />
+        {searching && (
+          <button className="absolute right-1.5 top-1.5 rounded p-0.5 text-faint hover:text-fg" title="Clear search" onClick={() => setQ('')}>
+            <X size={12} />
+          </button>
+        )}
       </div>
-      {inSeries && (
-        <div className="mx-2 mb-2 flex items-center gap-1 rounded-md border border-line p-0.5 text-[11.5px]">
-          <span className="px-1.5 text-faint">New entries go in:</span>
-          {(['series', 'book'] as const).map((sc) => (
-            <button key={sc} className={`flex-1 rounded px-2 py-0.5 ${scope === sc ? 'bg-raised text-fg' : 'text-muted hover:text-fg'}`} onClick={() => setScope(sc)}>
-              {sc === 'series' ? 'Series bible' : 'This book'}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="mx-2 mb-2 flex items-center gap-1">
+        {inSeries && (
+          <div className="flex flex-1 items-center gap-0.5 rounded-md border border-line p-0.5 text-[11.5px]" role="radiogroup" aria-label="Show entries from">
+            {(['all', 'series', 'book'] as const).map((v) => (
+              <button
+                key={v}
+                role="radio"
+                aria-checked={show === v}
+                title={v === 'all' ? 'Show every entry' : v === 'series' ? 'Only entries shared by every book in the series' : 'Only entries that belong to this book'}
+                className={`flex flex-1 items-center justify-center gap-1 rounded px-1.5 py-0.5 ${
+                  show === v ? 'bg-raised text-fg shadow-[var(--shadow-sm)]' : 'text-muted hover:text-fg'
+                }`}
+                onClick={() => setShow(v)}
+              >
+                {v === 'all' ? 'All' : v === 'series' ? 'Series' : 'Book'}
+                <span className="text-[10.5px] tabular-nums text-faint">{counts[v]}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          className={`icon-btn h-[26px] w-[26px] shrink-0 ${inSeries ? '' : 'ml-auto'}`}
+          title={allFolded ? 'Expand all sections' : 'Collapse all sections'}
+          onClick={() => saveFolded(Object.fromEntries([...kinds, 'docs'].map((k) => [k, !allFolded])))}
+        >
+          {allFolded ? <ChevronsUpDown size={13} /> : <ChevronsDownUp size={13} />}
+        </button>
+      </div>
       <div className="mb-2 px-2">
         <button
           className="action-row"
@@ -358,81 +481,122 @@ function BiblePanel() {
           <Sparkles size={13} /> Update bible from manuscript
         </button>
       </div>
-      {(Object.keys(KIND_META) as BibleKind[]).map((k) => (
-        <div key={k} className="mb-1">
-          <Row
-            actions={
-              <MiniBtn title={`New ${k.slice(0, -1)}`} onClick={() => setAdding(k)}>
-                <Plus size={13} />
-              </MiniBtn>
-            }
-          >
-            {KIND_META[k].icon}
-            <span className="font-medium text-fg">{KIND_META[k].label}</span>
-            <span className="ml-auto pr-1 text-[11px] text-faint group-hover:hidden">{entries.filter((e) => e.kind === k).length}</span>
-          </Row>
-          {adding === k && (
-            <InlineInput
-              placeholder="Name"
-              onCancel={() => setAdding(null)}
-              onSubmit={async (name) => {
-                setAdding(null)
-                const e = await api.bible.upsert(k, name, { aliases: [], summary: '' }, '', inSeries ? scope : 'book')
-                openTab({ kind: 'file', path: e.path })
-              }}
+      {searching && entries.length === 0 && docs.length === 0 && <Empty>Nothing in the bible matches “{q.trim()}”.</Empty>}
+      {kinds.map((k) => {
+        const list = entries.filter((e) => e.kind === k)
+        if (searching && list.length === 0) return null
+        const open = isOpen(k)
+        const meta = KIND_META[k]
+        return (
+          <div key={k} className="mb-1">
+            <SectionHeader
+              open={open}
+              onToggle={() => toggle(k)}
+              icon={meta.icon}
+              label={meta.label}
+              count={list.length}
+              actions={
+                <MiniBtn
+                  title={`New ${meta.noun}`}
+                  onClick={() => {
+                    if (folded[k]) toggle(k)
+                    setAdding(k)
+                  }}
+                >
+                  <Plus size={13} />
+                </MiniBtn>
+              }
             />
-          )}
-          {entries
-            .filter((e) => e.kind === k)
-            .map((e) => (
-              <Row
-                key={e.path}
-                indent={1}
-                active={activePath === e.path}
-                title={e.summary}
-                onClick={() => openTab({ kind: 'file', path: e.path })}
-                actions={
-                  k === 'characters' ? (
-                    <MiniBtn
-                      title="Develop with AI"
-                      onClick={async () => {
-                        const text = await api.commands.expand('character', e.name)
-                        if (text) void sendToEngine(text, { display: `/character ${e.name}` })
+            {open && (
+              <div className="anim-fade">
+                {adding === k && (
+                  <div>
+                    <InlineInput
+                      placeholder={`${meta.noun[0].toUpperCase()}${meta.noun.slice(1)} name`}
+                      onCancel={() => setAdding(null)}
+                      onSubmit={async (name) => {
+                        setAdding(null)
+                        const e = await api.bible.upsert(k, name, { aliases: [], summary: '' }, '', scope)
+                        openTab({ kind: 'file', path: e.path })
                       }}
-                    >
-                      <Sparkles size={13} />
-                    </MiniBtn>
-                  ) : undefined
-                }
-              >
-                <span className="truncate">{e.name}</span>
-                {inSeries && (
-                  <span className={`ml-1 shrink-0 rounded px-1 text-[10px] group-hover:hidden ${e.scope === 'series' ? 'bg-accent/15 text-accent' : 'bg-line text-faint'}`} title={e.scope === 'series' ? 'Shared by every book in the series' : 'Only in this book'}>
-                    {e.scope === 'series' ? 'series' : 'book'}
-                  </span>
+                    />
+                    {inSeries && (
+                      <div className="mx-2 mb-1 flex items-center gap-1 px-1 text-[11px] text-faint">
+                        {show === 'all' ? (
+                          <>
+                            <span>Add to</span>
+                            {(['series', 'book'] as const).map((sc) => (
+                              <button
+                                key={sc}
+                                // Keep the name field focused; it cancels when it loses focus.
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => setAddScope(sc)}
+                                className={`rounded px-1.5 py-px ${addScope === sc ? 'bg-raised text-fg' : 'hover:text-fg'}`}
+                              >
+                                {sc === 'series' ? 'Series bible' : 'This book'}
+                              </button>
+                            ))}
+                          </>
+                        ) : (
+                          <span>Adds to {show === 'series' ? 'the series bible' : 'this book'}.</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
+                {list.length === 0 && adding !== k && (
+                  <div className="mx-2 py-1 pl-[30px] text-[12px] text-faint">
+                    {show === 'all' ? `No ${meta.label.toLowerCase()} yet.` : `No ${show} ${meta.label.toLowerCase()}.`}
+                  </div>
+                )}
+                {list.map((e) => (
+                  <Row
+                    key={e.path}
+                    indent={1}
+                    active={activePath === e.path}
+                    title={e.summary}
+                    onClick={() => openTab({ kind: 'file', path: e.path })}
+                    actions={
+                      k === 'characters' ? (
+                        <MiniBtn
+                          title="Develop with AI"
+                          onClick={async () => {
+                            const text = await api.commands.expand('character', e.name)
+                            if (text) void sendToEngine(text, { display: `/character ${e.name}` })
+                          }}
+                        >
+                          <Sparkles size={13} />
+                        </MiniBtn>
+                      ) : undefined
+                    }
+                  >
+                    <span className="truncate">{e.name}</span>
+                    {inSeries && show === 'all' && (
+                      <span
+                        className={`ml-1 shrink-0 rounded px-1 text-[10px] group-hover:hidden ${e.scope === 'series' ? 'bg-accent/15 text-accent' : 'bg-line text-faint'}`}
+                        title={e.scope === 'series' ? 'Shared by every book in the series' : 'Only in this book'}
+                      >
+                        {e.scope === 'series' ? 'series' : 'book'}
+                      </span>
+                    )}
+                  </Row>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+      {docs.length > 0 && (
+        <div className="mt-2 border-t border-line pt-2">
+          <SectionHeader open={isOpen('docs')} onToggle={() => toggle('docs')} icon={<FileText size={13} />} label="Documents" />
+          {isOpen('docs') &&
+            docs.map(([p, label]) => (
+              <Row key={p} indent={1} active={activePath === p} onClick={() => openTab({ kind: 'file', path: p })}>
+                <span className="truncate">{label}</span>
               </Row>
             ))}
         </div>
-      ))}
-      <div className="mt-2 border-t border-line pt-2">
-        {(inSeries
-          ? [
-              ['bible/timeline.md', 'Timeline (this book)'],
-              [`${prefix}/bible/timeline.md`, 'Series timeline'],
-              [`${prefix}/bible/style-guide.md`, 'Series style guide']
-            ]
-          : [
-              ['bible/timeline.md', 'Timeline'],
-              ['bible/style-guide.md', 'Style guide']
-            ]
-        ).map(([p, label]) => (
-          <Row key={p} active={activePath === p} onClick={() => openTab({ kind: 'file', path: p })}>
-            <FileText size={13} />
-            <span>{label}</span>
-          </Row>
-        ))}
-      </div>
+      )}
     </div>
   )
 }
