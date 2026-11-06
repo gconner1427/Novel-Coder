@@ -133,14 +133,15 @@ export function SeriesPanel() {
       ))}
       <p className="px-3 pt-1 text-[11.5px] text-faint">Recurring characters, places and lore live in the series bible (Story Bible tab).</p>
 
-      <div className="mt-3 space-y-1 border-t border-line px-2 pt-3">
-        <button className="btn w-full justify-center py-1 text-[12px]" onClick={() => void run('series-plan')}>
+      <div className="mt-3 border-t border-line px-2 pt-3">
+        <div className="mb-1 px-2.5 text-[11.5px] font-medium text-faint">With the AI</div>
+        <button className="action-row" onClick={() => void run('series-plan')}>
           <Sparkles size={13} /> Develop the series arc
         </button>
-        <button className="btn w-full justify-center py-1 text-[12px]" onClick={() => void run('next-book')}>
+        <button className="action-row" onClick={() => void run('next-book')}>
           <Sparkles size={13} /> Plan the next book
         </button>
-        <button className="btn w-full justify-center py-1 text-[12px]" onClick={() => void run('continuity', 'this book against the series bible and earlier books')}>
+        <button className="action-row" onClick={() => void run('continuity', 'this book against the series bible and earlier books')}>
           <Sparkles size={13} /> Series continuity check
         </button>
       </div>

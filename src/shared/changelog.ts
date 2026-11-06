@@ -43,6 +43,11 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: 'Simpler settings',
         body:
           "Settings is now one page with a menu down the side: Accounts, Appearance, This book, Devices & AI memory, Updates and About. Theme and editor font are one-click choices, and you can now set the book's target length and daily goal there too. Changes to a book's settings show a Save bar so nothing is lost by accident."
+      },
+      {
+        title: 'Corkboard, Progress and a new icon',
+        body:
+          "The corkboard's scenes are now index cards, with the title in your book's typeface and the summary on ruled lines. A card shows where it will land as you drag it. Progress puts your word count, today's words, streak and finish estimate in one row, and the daily chart shows goal days in full brass. The AI shortcuts in the sidebar are tidier, outline files have readable names, and Novel Coder has a new icon: a brass feather on night ink."
       }
     ]
   },

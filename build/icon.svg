@@ -1,21 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Dark Studio: a brass feather under lamplight on a night-ink tile. Same feather as the in-app mark. -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2a2622"/>
-      <stop offset="1" stop-color="#151412"/>
+    <linearGradient id="ink" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#1b2030"/>
+      <stop offset="1" stop-color="#0b0d13"/>
     </linearGradient>
-    <linearGradient id="quill" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f0a080"/>
-      <stop offset="1" stop-color="#d06a48"/>
+    <radialGradient id="lamp" cx="0.42" cy="0.3" r="0.62">
+      <stop offset="0" stop-color="#d6ac5e" stop-opacity="0.30"/>
+      <stop offset="0.55" stop-color="#d6ac5e" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#d6ac5e" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="brass" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#f3d79a"/>
+      <stop offset="0.45" stop-color="#d6ac5e"/>
+      <stop offset="1" stop-color="#9c7228"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.02"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
   </defs>
-  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
-  <!-- open book -->
-  <path d="M96 352c56-22 112-22 160 6 48-28 104-28 160-6v48c-56-22-112-22-160 6-48-28-104-28-160-6z" fill="#ecebe6" opacity="0.92"/>
-  <path d="M256 358v48" stroke="#151412" stroke-width="6"/>
-  <!-- quill -->
-  <path d="M372 92c-92 18-160 92-176 196l-20 44 40-18c98-22 162-104 156-222z" fill="url(#quill)"/>
-  <path d="M352 120 C300 170 250 230 200 316" stroke="#151412" stroke-width="7" stroke-linecap="round" fill="none" opacity="0.55"/>
-  <!-- cursor -->
-  <rect x="300" y="300" width="14" height="40" rx="3" fill="#10a37f"/>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#ink)"/>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#lamp)"/>
+  <rect x="17.5" y="17.5" width="477" height="477" rx="106.5" fill="none" stroke="url(#rim)" stroke-width="3"/>
+  <rect x="44" y="44" width="424" height="424" rx="84" fill="none" stroke="#d6ac5e" stroke-opacity="0.22" stroke-width="2"/>
+  <g transform="translate(98 104) scale(13.2)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14.086 18.412A2 2 0 0112.67 19H5v-7.672a2 2 0 01.586-1.414L11.75 3.75a6 6 0 118.49 8.49z" fill="url(#brass)" stroke="url(#brass)" stroke-width="1.2"/>
+    <path d="M16 8 2 22" fill="none" stroke="url(#brass)" stroke-width="1.7"/>
+    <path d="M16 8 6 18" fill="none" stroke="#0f121a" stroke-opacity="0.55" stroke-width="1.1"/>
+    <path d="M17.488 15H9" fill="none" stroke="#0f121a" stroke-opacity="0.55" stroke-width="1.1"/>
+  </g>
 </svg>

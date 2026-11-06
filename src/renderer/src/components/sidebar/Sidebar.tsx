@@ -26,7 +26,7 @@ import {
 import { SeriesPanel } from './SeriesPanel'
 import { api } from '../../lib/api'
 import { useStore, type SidebarTab } from '../../store'
-import { Empty, EngineDot, StatusPill, timeAgo } from '../ui'
+import { Empty, EngineDot, StatusPill, docTitle, timeAgo } from '../ui'
 import type { BibleKind, Snapshot } from '@shared/types'
 
 const TABS: { id: SidebarTab; icon: ReactNode; label: string }[] = [
@@ -342,7 +342,7 @@ function BiblePanel() {
       )}
       <div className="mb-2 px-2">
         <button
-          className="btn w-full justify-center py-1 text-[12px]"
+          className="action-row"
           onClick={async () => {
             const text = await api.commands.expand('bible-sync', 'all')
             if (text) void sendToEngine(text, { display: '/bible-sync all' })
@@ -447,20 +447,22 @@ function OutlinePanel() {
       {files.map((f) => (
         <Row key={f} active={activePath === f} onClick={() => openTab({ kind: 'file', path: f })}>
           <FileText size={13} />
-          <span className="truncate">{f === 'NOVEL.md' ? "Author's instructions (NOVEL.md)" : f.replace(/\.md$/, '')}</span>
+          <span className="truncate">{f === 'NOVEL.md' ? "Author's instructions" : docTitle(project, f)}</span>
+          {f.startsWith('notes/') && <span className="ml-auto pr-1 text-[11px] text-faint">Notes</span>}
         </Row>
       ))}
-      <div className="mt-3 space-y-1 border-t border-line px-2 pt-3">
-        <button className="btn w-full justify-center py-1 text-[12px]" onClick={() => void run('outline')}>
+      <div className="mt-3 border-t border-line px-2 pt-3">
+        <div className="mb-1 px-2.5 text-[11.5px] font-medium text-faint">With the AI</div>
+        <button className="action-row" onClick={() => void run('outline')}>
           <Sparkles size={13} /> Develop outline with AI
         </button>
-        <button className="btn w-full justify-center py-1 text-[12px]" onClick={() => void run('beats')}>
+        <button className="action-row" onClick={() => void run('beats')}>
           <Sparkles size={13} /> Fill in beat sheet
         </button>
-        <button className="btn w-full justify-center py-1 text-[12px]" onClick={() => void run('summarize', 'all scenes missing a summary')}>
+        <button className="action-row" onClick={() => void run('summarize', 'all scenes missing a summary')}>
           <Sparkles size={13} /> Summarise scenes
         </button>
-        <button className="btn w-full justify-center py-1 text-[12px]" onClick={() => openTab({ kind: 'corkboard' })}>
+        <button className="action-row" onClick={() => openTab({ kind: 'corkboard' })}>
           <LayoutGrid size={13} /> Corkboard
         </button>
       </div>
@@ -620,11 +622,11 @@ function ReportsPanel() {
   }
   return (
     <div>
-      <div className="mb-2 space-y-1 px-2">
-        <button className="btn w-full justify-center py-1 text-[12px]" onClick={() => void run('continuity', 'all')}>
+      <div className="mb-2 border-b border-line px-2 pb-2">
+        <button className="action-row" onClick={() => void run('continuity', 'all')}>
           <ShieldCheck size={13} /> Continuity check (whole book)
         </button>
-        <button className="btn w-full justify-center py-1 text-[12px]" onClick={() => void run('critique', 'the whole manuscript so far')}>
+        <button className="action-row" onClick={() => void run('critique', 'the whole manuscript so far')}>
           <Sparkles size={13} /> Developmental critique
         </button>
       </div>
