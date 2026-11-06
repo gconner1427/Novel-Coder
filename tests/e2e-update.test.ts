@@ -10,6 +10,9 @@ import { execFileSync } from 'node:child_process'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright'
 
+// Mark this version's What's new as seen, so the pop-up doesn't cover the window.
+const SEEN_VERSION = JSON.parse(fs.readFileSync('package.json', 'utf8')).version as string
+
 const MODE = process.env.E2E_UPDATE
 const EXE = process.env.E2E_EXE
 const shots = process.env.E2E_SHOTS ?? path.join(os.tmpdir(), 'novel-coder-shots')
@@ -46,7 +49,7 @@ describe.skipIf(!MODE || !EXE)('in-app updates', () => {
     if (others.length) throw new Error(`Close Novel Coder before running this test (open: ${others.join(', ')}).`)
     fs.mkdirSync(shots, { recursive: true })
     const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'novel-update-'))
-    fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify({ recent: [] }))
+    fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify({ lastSeenVersion: SEEN_VERSION, recent: [] }))
     const env = { ...process.env, NOVEL_CODER_USER_DATA: userData } as Record<string, string>
     delete env.ELECTRON_RUN_AS_NODE
     app = await electron.launch({ executablePath: EXE!, args: [], env })

@@ -31,6 +31,7 @@ export interface AppSettings {
   lastProject?: string
   editorFont: 'serif' | 'sans' | 'mono'
   editorWidth: number
+  lastSeenVersion?: string
 }
 
 export interface ScaffoldOptions {

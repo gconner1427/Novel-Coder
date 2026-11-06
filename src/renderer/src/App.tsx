@@ -10,6 +10,7 @@ import { Welcome } from './components/Welcome'
 import { Dialogs } from './components/dialogs/Dialogs'
 import { Toast } from './components/ui'
 import { UpdateBanner } from './components/UpdateBanner'
+import { showWhatsNewIfNew } from './components/WhatsNew'
 import { BrainstormView } from './components/BrainstormView'
 
 export default function App() {
@@ -40,6 +41,7 @@ export default function App() {
       if (!p && settings.lastProject) p = await api.project.open(settings.lastProject).catch(() => null)
       if (p) await st.loadProject(p)
       setBooted(true)
+      void showWhatsNewIfNew()
     })()
     return () => {
       offProject()

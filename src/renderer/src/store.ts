@@ -16,7 +16,7 @@ import { api, uid, type AppSettings, type ScaffoldOptions } from './lib/api'
 
 export type SidebarTab = 'series' | 'manuscript' | 'bible' | 'outline' | 'files' | 'history' | 'snapshots' | 'reports'
 export type Tab = { kind: 'file'; path: string } | { kind: 'progress' } | { kind: 'corkboard' } | { kind: 'settings' } | { kind: 'welcome' }
-export type Dialog = null | 'new' | 'convert' | 'export' | 'settings' | 'help' | 'make-series'
+export type Dialog = null | 'new' | 'convert' | 'export' | 'settings' | 'help' | 'make-series' | 'whats-new'
 
 export const tabKey = (t: Tab) => (t.kind === 'file' ? `file:${t.path}` : t.kind)
 

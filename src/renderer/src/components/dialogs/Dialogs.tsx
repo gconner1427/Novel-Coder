@@ -4,6 +4,7 @@ import { api, type ScaffoldOptions } from '../../lib/api'
 import { useStore } from '../../store'
 import { Modal } from '../ui'
 import { useUpdateStatus } from '../UpdateBanner'
+import { WhatsNewDialog, openWhatsNew } from '../WhatsNew'
 import type { EngineId, ExportFormat, NovelConfig } from '@shared/types'
 
 export function Dialogs() {
@@ -16,6 +17,7 @@ export function Dialogs() {
   if (dialog === 'export') return <ExportDialog onClose={close} />
   if (dialog === 'settings') return <SettingsDialog onClose={close} />
   if (dialog === 'help') return <HelpDialog onClose={close} />
+  if (dialog === 'whats-new') return <WhatsNewDialog onClose={close} />
   return null
 }
 
@@ -459,7 +461,12 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
         </>
       )}
       <UpdatesSection />
-      <p className="mt-5 text-[11px] text-faint">Novel Coder {version}</p>
+      <div className="mt-5 flex items-center gap-3">
+        <p className="flex-1 text-[11px] text-faint">Novel Coder {version}</p>
+        <button className="btn text-[12.5px]" onClick={() => openWhatsNew()}>
+          What's new in this version
+        </button>
+      </div>
     </Modal>
   )
 }

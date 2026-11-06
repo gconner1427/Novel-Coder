@@ -7,6 +7,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright'
 import { listBible, listBooks, readText } from '@shared/project'
 
+// Mark this version's What's new as seen, so the pop-up doesn't cover the window.
+const SEEN_VERSION = JSON.parse(fs.readFileSync('package.json', 'utf8')).version as string
+
 const RUN = process.env.E2E === '1' && process.env.E2E_LIVE === '1'
 const shots = process.env.E2E_SHOTS ?? path.join(os.tmpdir(), 'novel-coder-shots')
 let app: ElectronApplication
@@ -24,7 +27,7 @@ describe.skipIf(!RUN)('brainstorm → series flow', () => {
     base = fs.mkdtempSync(path.join(os.tmpdir(), 'novel-bs-'))
     const userData = path.join(base, 'userdata')
     fs.mkdirSync(userData)
-    fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify({ recent: [], theme: 'dark' }))
+    fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify({ lastSeenVersion: SEEN_VERSION, recent: [], theme: 'dark' }))
     const env = { ...process.env, NOVEL_CODER_USER_DATA: userData } as Record<string, string>
     delete env.ELECTRON_RUN_AS_NODE
     const exe = process.env.E2E_EXE

@@ -41,6 +41,9 @@ import { exportManuscript } from './services/exporter'
 import { checkForUpdates, downloadUpdate, getUpdateStatus, installUpdate, setupUpdates } from './services/updater'
 import { BrainstormStore, IDEAS_FILE, parseIdeas, transcriptMarkdown } from './services/brainstorm'
 
+/** package.json version, baked in at build time (app.getVersion() is Electron's own in dev runs). */
+declare const __APP_VERSION__: string
+
 // ---------------- app settings (userData) ----------------
 
 interface AppSettings {
@@ -49,6 +52,8 @@ interface AppSettings {
   lastProject?: string
   editorFont: 'serif' | 'sans' | 'mono'
   editorWidth: number
+  /** The version whose What's new pop-up the user has seen. */
+  lastSeenVersion?: string
 }
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json')
 function getSettings(): AppSettings {
@@ -149,7 +154,7 @@ function registerIpc() {
   handle('app:openPath', (rel: string) => shell.openPath(rel && root && !path.isAbsolute(rel) ? resolveInside(root, rel) : rel))
   handle('app:showInFolder', (rel: string) => shell.showItemInFolder(root ? resolveInside(root, rel) : rel))
   handle('app:openExternal', (url: string) => (/^https?:\/\//.test(url) ? shell.openExternal(url) : undefined))
-  handle('app:version', () => app.getVersion())
+  handle('app:version', () => __APP_VERSION__)
 
   // updates (GitHub releases)
   handle('updates:status', () => getUpdateStatus())
