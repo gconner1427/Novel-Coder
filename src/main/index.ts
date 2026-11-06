@@ -40,6 +40,7 @@ import { CodexEngine } from './engines/codexEngine'
 import { getAuthStatus, launchLogin } from './services/auth'
 import { deleteSession, expandCommand, listCommands, listReports, listSessions, loadSession, loadStats, recordWords, saveSession, streak } from './services/store'
 import { exportManuscript } from './services/exporter'
+import { ignoredByWatcher } from './services/watchfilter'
 import { syncAi, syncStatus, type SyncDirection, type SyncEnv } from './services/aisync'
 import { checkForUpdates, downloadUpdate, getUpdateStatus, installUpdate, setupUpdates } from './services/updater'
 import { BrainstormStore, IDEAS_FILE, parseIdeas, transcriptMarkdown } from './services/brainstorm'
@@ -155,7 +156,7 @@ async function openProject(dir: string) {
   const seriesRoot = findSeriesRoot(dir)
   watcher = watch(seriesRoot ?? dir, {
     ignoreInitial: true,
-    ignored: (p: string) => /[\\/](node_modules|\.git|exports)([\\/]|$)/.test(p) || /[\\/]\.novel[\\/](history|sessions|ai)/.test(p),
+    ignored: ignoredByWatcher,
     awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 }
   })
   watcher.on('all', (_ev, file) => {

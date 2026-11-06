@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.2.1',
+    summary: 'Fixes the slowdowns and freezes.',
+    items: [
+      {
+        title: 'No more slowdowns and freezes',
+        body:
+          "Novel Coder was quietly reloading your whole book (and, in a series, every book) a couple of times a second, even when nothing was happening. That slowed the AI's replies, kept its edits from showing on the page until you restarted, made other documents open blank, and could freeze the app. It now reloads only when something in the book actually changes."
+      }
+    ]
+  },
+  {
     version: '0.2.0',
     summary: 'Your AI and chats follow you between devices, plus a blocking check for scenes.',
     items: [

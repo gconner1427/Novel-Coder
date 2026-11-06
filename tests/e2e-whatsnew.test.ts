@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright'
+import { CHANGELOG } from '@shared/changelog'
 
 const E2E = process.env.E2E === '1'
 const shots = process.env.E2E_SHOTS ?? path.join(os.tmpdir(), 'novel-coder-shots')
@@ -54,7 +55,8 @@ describe.skipIf(!E2E)("What's new pop-up", () => {
     await page.click('button[title^="Settings"]')
     await page.click("button:has-text(\"What's new in this version\")")
     await page.getByTestId('whats-new').waitFor({ timeout: 5000 })
-    expect(await page.getByTestId('whats-new').innerText()).toContain('Blocking check')
+    // The current version's own notes.
+    expect(await page.getByTestId('whats-new').innerText()).toContain(CHANGELOG.find((e) => e.version === version)!.items[0].title)
     await page.click('button:has-text("Earlier versions")')
     expect(await page.getByTestId('whats-new').innerText()).toContain('Version 0.1.0')
     await page.screenshot({ path: path.join(shots, 'whatsnew-from-settings.png') })

@@ -37,7 +37,10 @@ export function recordWords(root: string, total: number): StatsFile {
     day.endWords = total
   }
   stats.days = stats.days.slice(-400)
-  writeText(dir(root, 'stats.json'), JSON.stringify(stats, null, 2))
+  // Only write when something changed. (Writing on every call fed a reload loop: the file watcher saw
+  // the write, reloaded the book, which recorded words again, and so on, several times a second.)
+  const text = JSON.stringify(stats, null, 2)
+  if (readText(dir(root, 'stats.json')) !== text) writeText(dir(root, 'stats.json'), text)
   return stats
 }
 

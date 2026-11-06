@@ -245,6 +245,13 @@ export function writeText(file: string, text: string): void {
   fs.writeFileSync(file, text, 'utf8')
 }
 
+/** Write a file only if its content would change. */
+export function writeIfChanged(file: string, text: string): boolean {
+  if (readText(file) === text) return false
+  writeText(file, text)
+  return true
+}
+
 /** Count words in prose, ignoring YAML frontmatter, markdown markup and HTML comments. */
 export function countWords(text: string): number {
   let body = text
@@ -658,8 +665,9 @@ Notes about this author and this book, shared with the other AI the author uses,
 - Update or delete notes that turn out to be wrong. Don't save what the manuscript or story bible already records.
 - Don't touch \`.novel/ai/chats/\` or \`.novel/ai/manifest.json\`.
 `
-  writeText(path.join(root, 'CLAUDE.md'), text + claudeMemory)
-  writeText(path.join(root, 'AGENTS.md'), text + codexMemory)
+  // Only write when the content changed, so opening a book doesn't make the watcher reload it.
+  writeIfChanged(path.join(root, 'CLAUDE.md'), text + claudeMemory)
+  writeIfChanged(path.join(root, 'AGENTS.md'), text + codexMemory)
 }
 
 function seriesInstructions(root: string, cfg: NovelConfig): string {
