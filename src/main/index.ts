@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen, shell } from 'electron'
 import fs from 'node:fs'
 import os from 'node:os'
 import crypto from 'node:crypto'
@@ -498,10 +498,49 @@ async function renderPdf(html: string): Promise<Buffer> {
 
 // ---------------- window ----------------
 
+/** The window's size, position and maximized state, saved on close so the app reopens the way it was left. */
+interface WindowState {
+  x?: number
+  y?: number
+  width: number
+  height: number
+  maximized: boolean
+}
+const windowStateFile = () => path.join(app.getPath('userData'), 'window-state.json')
+function loadWindowState(): WindowState {
+  const d: WindowState = { width: 1500, height: 940, maximized: false }
+  try {
+    const s = { ...d, ...JSON.parse(fs.readFileSync(windowStateFile(), 'utf8')) } as WindowState
+    s.width = Math.max(980, Math.round(s.width) || d.width)
+    s.height = Math.max(600, Math.round(s.height) || d.height)
+    // Only reuse the position if the window would still be visible (a monitor may have been unplugged).
+    if (s.x !== undefined && s.y !== undefined) {
+      const onScreen = screen.getAllDisplays().some(({ workArea: a }) => s.x! < a.x + a.width - 100 && s.x! + s.width > a.x + 100 && s.y! >= a.y - 10 && s.y! < a.y + a.height - 100)
+      if (!onScreen) delete s.x, delete s.y
+    }
+    return s
+  } catch {
+    return d
+  }
+}
+function saveWindowState(w: BrowserWindow) {
+  try {
+    // The size it returns to when un-maximized, so restoring still works after reopening maximized.
+    const b = w.getNormalBounds()
+    writeText(windowStateFile(), JSON.stringify({ x: b.x, y: b.y, width: b.width, height: b.height, maximized: w.isMaximized() } satisfies WindowState))
+  } catch {
+    /* not critical */
+  }
+}
+
 function createWindow() {
+  const state = loadWindowState()
   win = new BrowserWindow({
-    width: 1500,
-    height: 940,
+    x: state.x,
+    y: state.y,
+    width: state.width,
+    height: state.height,
+    show: false,
     minWidth: 980,
     minHeight: 600,
     title: 'Novel Coder',
@@ -535,6 +574,12 @@ function createWindow() {
   })
   if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL)
   else void win.loadFile(path.join(import.meta.dirname, '../renderer/index.html'))
+  const w = win
+  w.once('ready-to-show', () => {
+    if (state.maximized) w.maximize()
+    w.show()
+  })
+  w.on('close', () => saveWindowState(w))
   win.on('closed', () => {
     win = null
   })

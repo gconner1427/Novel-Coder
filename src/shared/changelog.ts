@@ -35,9 +35,9 @@ export const CHANGELOG: ChangelogEntry[] = [
           "In a series, the Story Bible now has All, Series and Book buttons, so you can show only the shared series entries or only this book's. Click Characters, Locations, Lore & World or Documents to fold that section away, or use the button beside the filter to fold or open them all. Searching opens every section so nothing is hidden, and Esc clears the search. New entries go into whichever bible you're showing; when you're showing both, you choose as you name it. The app remembers your filter and folded sections."
       },
       {
-        title: 'Your chat settings carry over',
+        title: 'The app opens the way you left it',
         body:
-          "The app now remembers your chat mode (like Full auto) when you close and reopen it, along with the engine you last used in each book and whether you had the chat in focus mode. Your model and effort choices were already remembered."
+          "The app now remembers your chat mode (like Full auto) when you close and reopen it, along with the engine you last used in each book and whether you had the chat in focus mode. The window also reopens at the same size and place, and maximized if you left it maximized. Your model and effort choices were already remembered."
       }
     ]
   },

@@ -1,4 +1,4 @@
-// End-to-end (opt-in): the story bible's filter and folds, and chat settings, survive quitting and reopening the app.
+// End-to-end (opt-in): the story bible's filter and folds, and chat settings and the window's maximized state survive quitting and reopening the app.
 //   set E2E=1 && npm run build && npx vitest run tests/e2e-remember.test.ts
 import fs from 'node:fs'
 import os from 'node:os'
@@ -12,7 +12,7 @@ const E2E = process.env.E2E === '1'
 const shots = process.env.E2E_SHOTS ?? path.join(os.tmpdir(), 'novel-coder-shots')
 
 describe.skipIf(!E2E)('remembered settings', () => {
-  it('filters and folds the series bible, and remembers that and the chat mode after a restart', async () => {
+  it('filters and folds the series bible, and remembers that, the chat mode and a maximized window after a restart', async () => {
     fs.mkdirSync(shots, { recursive: true })
     const base = fs.mkdtempSync(path.join(os.tmpdir(), 'novel-e2e-remember-'))
     const root = scaffoldSeries(path.join(base, 'Lantern Saga'), { seriesTitle: 'Lantern Saga', firstBookTitle: 'The Lantern Orchard', author: 'Ada Writer', genre: 'Fantasy' })
@@ -64,6 +64,9 @@ describe.skipIf(!E2E)('remembered settings', () => {
     await page.click('button:has-text("Ask before edits")')
     await page.getByText('Full auto', { exact: true }).last().click()
     await page.waitForSelector('footer >> text=Full auto')
+    // Maximize the window before quitting.
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].maximize())
+    await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMaximized())).toBe(true)
     await app.close()
 
     // Reopen: the mode, the bible filter and the fold are all as they were.
@@ -74,6 +77,11 @@ describe.skipIf(!E2E)('remembered settings', () => {
     expect(await filter('Book').getAttribute('aria-checked')).toBe('true')
     await page.locator('nav ~ div').locator('text=Old Maren').waitFor()
     expect(await page.locator('nav ~ div').locator('text=The Lantern Orchard').count()).toBe(0)
+    // It reopens maximized, and still knows its normal size for when it's restored.
+    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMaximized())).toBe(true)
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].unmaximize())
+    await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMaximized())).toBe(false)
+    expect(JSON.parse(fs.readFileSync(path.join(userData, 'window-state.json'), 'utf8')).width).toBeGreaterThanOrEqual(980)
     await app.close()
   }, 120000)
 })
