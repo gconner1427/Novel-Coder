@@ -1,4 +1,4 @@
-import { BookOpen, PanelLeft, PanelRight, Settings, Feather, Maximize2, Lightbulb, Library, ChevronRight } from 'lucide-react'
+import { BookOpen, PanelLeft, PanelRight, Settings, Feather, Maximize2, Lightbulb, Library, LibraryBig, ChevronRight } from 'lucide-react'
 import { useStore } from '../store'
 import type { EngineId } from '@shared/types'
 
@@ -10,10 +10,18 @@ export function TitleBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen: boolea
   const set = useStore((s) => s.set)
   const editorHidden = useStore((s) => s.editorHidden)
   const auth = useStore((s) => s.auth)
+  const goToLibrary = useStore((s) => s.goToLibrary)
+  const inside = !!(project || brainstorm)
 
   return (
     <header className="drag flex h-10 shrink-0 items-center gap-2 border-b border-line bg-bg pl-3 pr-[150px]">
-      <div className="flex items-center gap-2">
+      <button
+        className={`flex items-center gap-2 rounded-md ${inside ? 'no-drag -mx-1 px-1 py-0.5 hover:bg-panel2' : 'cursor-default'}`}
+        title={inside ? 'Back to your library' : undefined}
+        disabled={!inside}
+        style={{ opacity: 1 }}
+        onClick={() => void goToLibrary()}
+      >
         <span
           className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px]"
           style={{ background: 'linear-gradient(145deg, color-mix(in srgb, var(--accent) 85%, #fff 15%), color-mix(in srgb, var(--accent) 80%, #000 20%))', boxShadow: '0 1px 0 rgba(255,255,255,.25) inset, 0 2px 8px -2px color-mix(in srgb, var(--accent) 60%, transparent)' }}
@@ -21,7 +29,12 @@ export function TitleBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen: boolea
           <Feather size={13} strokeWidth={2.2} className="text-accent-fg" />
         </span>
         <span className="text-[13px] font-semibold tracking-[-0.01em]">Novel Coder</span>
-      </div>
+      </button>
+      {inside && (
+        <button className="btn btn-ghost no-drag ml-1 px-2 py-[3px] text-[12.5px]" title="Back to your library" onClick={() => void goToLibrary()}>
+          <LibraryBig size={14} /> Library
+        </button>
+      )}
       {project && (
         <>
           <button className="icon-btn no-drag ml-3" title="Toggle sidebar (Ctrl+B)" onClick={onToggleSidebar}>

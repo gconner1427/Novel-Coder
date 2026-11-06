@@ -71,6 +71,8 @@ interface State {
   startBrainstorm: (engine?: EngineId) => Promise<void>
   openBrainstorm: (id: string) => Promise<void>
   leaveBrainstorm: () => Promise<void>
+  /** Close the open book or brainstorm and show the library. */
+  goToLibrary: () => Promise<void>
   convertBrainstorm: (dir: string, opts: ScaffoldOptions) => Promise<void>
   openBook: (bookRoot: string) => Promise<void>
   addBook: (title: string) => Promise<void>
@@ -241,6 +243,20 @@ export const useStore = create<State>((set, get) => ({
       handoff: null
     })
     set({ commands: await api.commands.list() })
+  },
+
+  goToLibrary: async () => {
+    if (get().brainstorm) return get().leaveBrainstorm()
+    if (!get().project) return
+    if (get().busy) await get().interrupt()
+    // Save the chat now: the usual delayed save gives up once the book is closed.
+    if (saveTimer) clearTimeout(saveTimer)
+    const s = get().session
+    if (s.items.some((i) => i.kind === 'user')) await api.sessions.save(s).catch(() => null)
+    // Unmount the editor first so it saves any unsaved typing while the book is still open.
+    set({ project: null, dialog: null, session: emptySession(get().engine), started: null, busy: false, todos: [], handoff: null })
+    await new Promise((r) => setTimeout(r, 50))
+    await api.project.close()
   },
 
   leaveBrainstorm: async () => {

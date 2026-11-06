@@ -566,10 +566,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
                 )}
                 <button
                   className="btn btn-ghost text-[12.5px]"
-                  onClick={async () => {
-                    await api.project.close()
-                    set({ project: null, dialog: null })
-                  }}
+                  onClick={() => void useStore.getState().goToLibrary()}
                 >
                   Close book
                 </button>

@@ -47,7 +47,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: 'Corkboard, Progress and a new icon',
         body:
-          "The corkboard's scenes are now index cards, with the title in your book's typeface and the summary on ruled lines. A card shows where it will land as you drag it. Progress puts your word count, today's words, streak and finish estimate in one row, and the daily chart shows goal days in full brass. The AI shortcuts in the sidebar are tidier, outline files have readable names, and Novel Coder has a new icon: a brass feather on night ink."
+          "The corkboard's scenes are now index cards, with the title in your book's typeface and the summary on ruled lines. A card shows where it will land as you drag it. Progress puts your word count, today's words, streak and finish estimate in one row, and the daily chart shows goal days in full brass. The AI shortcuts in the sidebar are tidier, outline files have readable names, and Novel Coder has a new icon: a brass feather on night ink. To get back to your library from a book or a brainstorm, click Library at the top left (or the Novel Coder logo)."
       }
     ]
   },

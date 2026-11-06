@@ -170,4 +170,21 @@ describe.skipIf(!E2E)('Novel Coder app', () => {
       expect(chat).not.toMatch(/requires approval|isn.t logged in/)
     }, 300000)
   }
+
+  // Last: it closes the book.
+  it('goes back to the library without losing what was just typed', async () => {
+    await page.click('button[title="Manuscript"]')
+    await page.click('text=Dusk Harvest')
+    await page.locator('.ProseMirror p').last().click()
+    await page.keyboard.press('End')
+    await page.keyboard.type(' She did not look back.')
+    // Straight away, before the autosave delay has passed.
+    await page.click('button:has-text("Library")')
+    await page.waitForSelector('text=Your library', { timeout: 10000 })
+    await expect.poll(() => readScene(root, 'manuscript/01-chapter-one/01-opening.md').body, { timeout: 5000 }).toContain('She did not look back.')
+    await page.screenshot({ path: path.join(shots, '07-library.png') })
+    // And back into the book from its cover.
+    await page.click('button[title^="Open The Lantern Orchard"]')
+    await page.waitForSelector('.ProseMirror', { timeout: 10000 })
+  })
 })
