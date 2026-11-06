@@ -1,12 +1,16 @@
 # Novel Coder
 
-An agentic writing studio for novelists, for Windows. It works like the Claude Code and Codex desktop apps, but it is built for fiction. Under the hood it runs the official **Claude Code** engine (Claude Agent SDK) and the **OpenAI Codex** engine (Codex SDK), so it uses your existing **Claude Pro/Max** or **ChatGPT Plus/Pro** subscription. No API keys are needed.
+An agentic writing studio for novelists, for Windows. It works like the Claude Code and Codex desktop apps, but it is built for fiction. Under the hood it runs **Claude Code** (through the Claude Agent SDK) and **OpenAI Codex** (through the Codex SDK). You sign in to each with your own account, so usage counts against your own Claude or ChatGPT plan.
+
+Novel Coder is an independent project. It is not made, endorsed or supported by Anthropic or OpenAI.
 
 ## Install
 
-Run `dist\Novel-Coder-Setup-<version>.exe`. The app isn't code-signed, so Windows SmartScreen may warn you; click **More info → Run anyway**.
+1. Download `Novel-Coder-Setup-<version>.exe` from the [latest release](https://github.com/gconner1427/Novel-Coder/releases/latest) and run it. The app isn't code-signed yet, so Windows SmartScreen may warn you; click **More info → Run anyway**.
+2. **To use Claude:** install Claude Code from Anthropic ([setup guide](https://code.claude.com/docs/en/setup)) and sign in to it. Novel Coder doesn't include Claude Code; it finds your own installation, whether from Anthropic's installer, npm, or the Claude Code VS Code extension.
+3. **To use Codex:** Codex is included. Sign in with **Settings → Accounts → Log in**, which runs `codex login`.
 
-Sign in once to each engine you want to use. In Novel Coder, go to **Settings → Accounts → Log in**; this opens a console running `claude auth login` or `codex login`. If you already use Claude Code or the Codex CLI on this PC, you're already signed in.
+If you already use Claude Code or the Codex CLI on this PC, you're already signed in. Sign-in always goes through Anthropic's and OpenAI's own login pages; Novel Coder never sees or stores your credentials.
 
 ## Features
 

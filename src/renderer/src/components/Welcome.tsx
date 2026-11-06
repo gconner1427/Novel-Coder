@@ -130,15 +130,21 @@ export function Welcome() {
                   {a?.loggedIn ? <CheckCircle2 size={14} className="text-ok" /> : <AlertCircle size={14} className="text-warn" />}
                   {a?.detail ?? 'Checking…'}
                 </div>
-                <button
-                  className="btn text-[12.5px]"
-                  onClick={async () => {
-                    await api.auth.login(e)
-                    notify('Finish signing in in the window that opened, then click Refresh.')
-                  }}
-                >
-                  <LogIn size={14} /> {a?.loggedIn ? 'Switch account' : `Log in to ${e === 'claude' ? 'Claude' : 'ChatGPT'}`}
-                </button>
+                {a && !a.installed ? (
+                  <button className="btn text-[12.5px]" onClick={() => void api.app.openExternal('https://code.claude.com/docs/en/setup')}>
+                    <LogIn size={14} /> Install Claude Code
+                  </button>
+                ) : (
+                  <button
+                    className="btn text-[12.5px]"
+                    onClick={async () => {
+                      await api.auth.login(e)
+                      notify('Finish signing in in the window that opened, then click Refresh.')
+                    }}
+                  >
+                    <LogIn size={14} /> {a?.loggedIn ? 'Switch account' : `Log in to ${e === 'claude' ? 'Claude' : 'ChatGPT'}`}
+                  </button>
+                )}
                 <button className="btn btn-ghost ml-1 text-[12.5px]" onClick={async () => set({ auth: await api.auth.status() })}>
                   Refresh
                 </button>

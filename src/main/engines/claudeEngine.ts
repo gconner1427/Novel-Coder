@@ -4,7 +4,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { query, type Query, type SDKMessage, type SDKUserMessage, type PermissionMode as ClaudeMode, type PermissionUpdate } from '@anthropic-ai/claude-agent-sdk'
 import type { EngineEvent, PermissionMode, PermissionResponse, SendOptions } from '@shared/types'
-import { AsyncQueue, type Emit, type Engine, type EngineStartOptions, mcpServerSpec, readFileOrUndefined, resolvePackageFile, SAFE_NOVEL_TOOLS } from './engine'
+import { AsyncQueue, type Emit, type Engine, type EngineStartOptions, mcpServerSpec, readFileOrUndefined, SAFE_NOVEL_TOOLS } from './engine'
+import { claudeExe } from '../services/auth'
 import { BRAINSTORM_SYSTEM_APPEND, NOVEL_SYSTEM_APPEND, SUBAGENTS } from './prompts'
 
 const MODE_MAP: Record<PermissionMode, ClaudeMode> = {
@@ -46,7 +47,9 @@ export class ClaudeEngine implements Engine {
     this.emit = opts.emit
     this.root = opts.root
     this.mode = opts.settings.permissionMode
-    const exe = resolvePackageFile('@anthropic-ai/claude-agent-sdk-win32-x64', 'claude.exe')
+    // The user's own, unmodified Claude Code install (Novel Coder does not bundle it).
+    const exe = claudeExe()
+    if (!exe) throw new Error('Claude Code is not installed. Install it from Anthropic (Settings → Accounts has a link), sign in, then try again.')
     const model = opts.settings.model && opts.settings.model !== 'default' ? opts.settings.model : undefined
     const brainstorm = opts.mode === 'brainstorm'
     this.q = query({
@@ -270,6 +273,7 @@ function toolText(c: unknown): string {
 
 function friendlyError(msg: string): string {
   if (/authentication|login|401|oauth/i.test(msg)) return `Claude isn't logged in (${msg}). Open Settings → Accounts and click "Log in to Claude".`
+  if (/unknown option|unrecognized|not supported by this version|ENOENT/i.test(msg)) return `Claude Code could not start (${msg}). Update it by running "claude update" in a terminal, then try again.`
   if (/rate_limit|usage limit/i.test(msg)) return `Claude usage limit reached for your plan (${msg}). Try again later or switch to Codex.`
   return msg
 }

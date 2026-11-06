@@ -373,14 +373,20 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
                   {a?.detail}
                 </div>
               </div>
-              <button className="btn text-[12.5px]" onClick={() => void api.auth.login(e)}>
-                <LogIn size={13} /> {a?.loggedIn ? 'Re-login' : 'Log in'}
-              </button>
+              {a && !a.installed ? (
+                <button className="btn text-[12.5px]" onClick={() => void api.app.openExternal('https://code.claude.com/docs/en/setup')}>
+                  <LogIn size={13} /> Install Claude Code
+                </button>
+              ) : (
+                <button className="btn text-[12.5px]" onClick={() => void api.auth.login(e)}>
+                  <LogIn size={13} /> {a?.loggedIn ? 'Re-login' : 'Log in'}
+                </button>
+              )}
             </div>
           )
         })}
         <p className="text-[11.5px] text-faint">
-          Novel Coder runs the official Claude Code and Codex engines on your computer, so usage counts against your own Claude Pro/Max or ChatGPT Plus/Pro plan. No API key needed.
+          Novel Coder runs Claude Code (installed separately from Anthropic) and Codex on your computer. You sign in to each through its own login, and usage counts against your own Claude or ChatGPT plan. Novel Coder never sees your credentials.
         </p>
       </div>
 
