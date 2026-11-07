@@ -23,6 +23,7 @@ import {
   Pencil,
   ShieldCheck,
   Library,
+  Orbit,
   Tag,
   FolderPlus,
   ChevronsDownUp,
@@ -30,6 +31,7 @@ import {
   X
 } from 'lucide-react'
 import { SeriesPanel } from './SeriesPanel'
+import { UniversePanel } from './UniversePanel'
 import { api } from '../../lib/api'
 import { useStore, type SidebarTab } from '../../store'
 import { Empty, EngineDot, StatusPill, docTitle, timeAgo } from '../ui'
@@ -37,6 +39,8 @@ import type { BibleScope, Snapshot } from '@shared/types'
 
 const TABS: { id: SidebarTab; icon: ReactNode; label: string }[] = [
   { id: 'series', icon: <Library size={17} />, label: 'Series' },
+  // Shown instead of Series for a book in a universe.
+  { id: 'series', icon: <Orbit size={17} />, label: 'Universe' },
   { id: 'manuscript', icon: <BookText size={17} />, label: 'Manuscript' },
   { id: 'bible', icon: <Users size={17} />, label: 'Story Bible' },
   { id: 'outline', icon: <ListTree size={17} />, label: 'Outline' },
@@ -49,10 +53,12 @@ const TABS: { id: SidebarTab; icon: ReactNode; label: string }[] = [
 export function Sidebar() {
   const tab = useStore((s) => s.sidebar)
   const set = useStore((s) => s.set)
+  const inUniverse = useStore((s) => !!s.project?.universe)
+  const tabs = TABS.filter((t) => t.id !== 'series' || (t.label === 'Universe') === inUniverse)
   return (
     <div className="flex shrink-0">
       <nav className="flex w-12 flex-col items-center gap-1 border-r border-line bg-bg py-2.5" aria-label="Sidebar">
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           const on = tab === t.id
           return (
             <button
@@ -69,9 +75,9 @@ export function Sidebar() {
         })}
       </nav>
       <div className="flex w-[264px] flex-col bg-panel">
-        <div className="flex h-10 shrink-0 items-center px-4 text-[13.5px] font-semibold tracking-[-0.01em] text-fg">{TABS.find((t) => t.id === tab)?.label}</div>
+        <div className="flex h-10 shrink-0 items-center px-4 text-[13.5px] font-semibold tracking-[-0.01em] text-fg">{tabs.find((t) => t.id === tab)?.label}</div>
         <div className="min-h-0 flex-1 overflow-y-auto pb-4">
-          {tab === 'series' && <SeriesPanel />}
+          {tab === 'series' && (inUniverse ? <UniversePanel /> : <SeriesPanel />)}
           {tab === 'manuscript' && <ManuscriptPanel />}
           {tab === 'bible' && <BiblePanel />}
           {tab === 'outline' && <OutlinePanel />}

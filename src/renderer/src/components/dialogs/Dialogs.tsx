@@ -1,11 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { FileDown, FolderOpen, LogIn, CheckCircle2, AlertCircle, BookOpen, FileText, Book, FileType, Library } from 'lucide-react'
+import { FileDown, FolderOpen, LogIn, CheckCircle2, AlertCircle, BookOpen, FileText, Book, FileType, Library, Orbit } from 'lucide-react'
 import { api, type AiSyncStatus, type ScaffoldOptions } from '../../lib/api'
 import { useStore } from '../../store'
 import { Modal } from '../ui'
 import { useUpdateStatus } from '../UpdateBanner'
 import { WhatsNewDialog, openWhatsNew } from '../WhatsNew'
-import type { EngineId, ExportFormat, NovelConfig } from '@shared/types'
+import type { BookFormat, EngineId, ExportFormat, NovelConfig } from '@shared/types'
+
+const FORMAT_WORDS: Record<BookFormat, number> = { novel: 80000, novella: 30000, 'short-story': 7500 }
 
 export function Dialogs() {
   const dialog = useStore((s) => s.dialog)
@@ -68,18 +70,27 @@ function NewNovelDialog({ onClose, convert = false }: { onClose: () => void; con
       premise: fields.premise ?? ''
     }
   })
-  const series = o.kind === 'series'
+  const universe = o.kind === 'universe'
+  // In a universe, "series" means the universe starts with a series.
+  const series = o.kind === 'series' || (universe && o.firstKind === 'series')
   const [dir, setDir] = useState('')
   const [busy, setBusy] = useState(false)
   const up = (p: Partial<ScaffoldOptions>) => setO((x) => ({ ...x, ...p }))
+  const setFormat = (format: BookFormat) => up({ format, targetWords: FORMAT_WORDS[format] })
 
-  const valid = !!o.title.trim() && !!dir && (!series || !!o.seriesTitle?.trim())
+  const valid = !!o.title.trim() && !!dir && (!series || !!o.seriesTitle?.trim()) && (!universe || !!o.universeTitle?.trim())
   const create = async () => {
     if (!valid) return
     setBusy(true)
     try {
-      const opts = { ...o, description: series ? o.premise : undefined }
-      const name = series ? o.seriesTitle : o.title
+      const opts = {
+        ...o,
+        description: series || universe ? o.premise : undefined,
+        // The premise box describes the universe (or series), not the first book.
+        premise: universe || o.kind === 'series' ? undefined : o.premise,
+        format: series ? undefined : o.format
+      }
+      const name = universe ? o.universeTitle : series ? o.seriesTitle : o.title
       if (convert) {
         onClose()
         await convertBrainstorm(dir, opts)
@@ -99,7 +110,7 @@ function NewNovelDialog({ onClose, convert = false }: { onClose: () => void; con
 
   return (
     <Modal
-      title={convert ? 'Turn brainstorm into a project' : series ? 'New series' : 'New novel'}
+      title={convert ? 'Turn brainstorm into a project' : universe ? 'New universe' : series ? 'New series' : 'New novel'}
       onClose={onClose}
       width={640}
       footer={
@@ -108,7 +119,7 @@ function NewNovelDialog({ onClose, convert = false }: { onClose: () => void; con
             Cancel
           </button>
           <button className="btn btn-primary" disabled={!valid || busy} onClick={() => void create()}>
-            {busy ? 'Creating…' : series ? 'Create series' : 'Create novel'}
+            {busy ? 'Creating…' : universe ? 'Create universe' : series ? 'Create series' : 'Create novel'}
           </button>
         </>
       }
@@ -118,26 +129,68 @@ function NewNovelDialog({ onClose, convert = false }: { onClose: () => void; con
           Pre-filled from your brainstorm notes. After it's created, the AI reads the brainstorm and builds the outline, story bible{series ? ', series plan' : ''} and first scenes.
         </p>
       )}
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        <KindButton on={!series} onClick={() => up({ kind: 'novel' })} icon={<BookOpen size={16} />} label="Standalone novel" hint="One book" />
-        <KindButton on={series} onClick={() => up({ kind: 'series' })} icon={<Library size={16} />} label="Series" hint="Several books sharing a story bible" />
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        <KindButton on={o.kind === 'novel' || !o.kind} onClick={() => up({ kind: 'novel' })} icon={<BookOpen size={16} />} label="Standalone" hint="One book" />
+        <KindButton on={o.kind === 'series'} onClick={() => up({ kind: 'series' })} icon={<Library size={16} />} label="Series" hint="Books sharing a bible" />
+        <KindButton
+          on={universe}
+          onClick={() => up({ kind: 'universe', firstKind: o.firstKind ?? 'series', universeTitle: o.universeTitle || o.seriesTitle || '' })}
+          icon={<Orbit size={16} />}
+          label="Universe"
+          hint="Many series, one world"
+        />
       </div>
       <div className="grid grid-cols-2 gap-3">
+        {universe && (
+          <>
+            <div className="col-span-2">
+              <L label="Universe title">
+                <input autoFocus className="field w-full" value={o.universeTitle ?? ''} onChange={(e) => up({ universeTitle: e.target.value })} placeholder="The Vanguard Universe" />
+              </L>
+            </div>
+            <div className="col-span-2">
+              <L label="Start the universe with">
+                <div className="flex gap-2">
+                  {(
+                    [
+                      ['series', 'A series'],
+                      ['standalone', 'A standalone book']
+                    ] as const
+                  ).map(([v, l]) => (
+                    <button key={v} className={`btn flex-1 justify-center ${o.firstKind === v ? 'border-accent bg-accent/10' : ''}`} onClick={() => up({ firstKind: v })}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <span className="mt-1 block text-[11.5px] text-faint">You can add more series and standalones from the Universe tab at any time.</span>
+              </L>
+            </div>
+          </>
+        )}
         {series && (
           <>
             <L label="Series title">
-              <input autoFocus className="field w-full" value={o.seriesTitle} onChange={(e) => up({ seriesTitle: e.target.value })} placeholder="The Lantern Cycle" />
+              <input autoFocus={!universe} className="field w-full" value={o.seriesTitle} onChange={(e) => up({ seriesTitle: e.target.value })} placeholder="The Lantern Cycle" />
             </L>
             <L label="Planned books">
               <input type="number" min={2} max={20} className="field w-full" value={o.plannedBooks} onChange={(e) => up({ plannedBooks: Number(e.target.value) })} />
             </L>
           </>
         )}
-        <div className="col-span-2">
+        <div className={series ? 'col-span-2' : ''}>
           <L label={series ? 'Title of book 1' : 'Title'}>
-            <input autoFocus={!series} className="field w-full" value={o.title} onChange={(e) => up({ title: e.target.value })} placeholder={series ? 'Book one title' : 'The Untitled Novel'} />
+            <input autoFocus={!series && !universe} className="field w-full" value={o.title} onChange={(e) => up({ title: e.target.value })} placeholder={series ? 'Book one title' : 'The Untitled Novel'} />
           </L>
         </div>
+        {!series && (
+          <L label="Format">
+            <select className="field w-full" value={o.format ?? 'novel'} onChange={(e) => setFormat(e.target.value as BookFormat)}>
+              <option value="novel">Novel</option>
+              <option value="novella">Novella</option>
+              <option value="short-story">Short story</option>
+            </select>
+          </L>
+        )}
         <L label="Author name">
           <input className="field w-full" value={o.author} onChange={(e) => up({ author: e.target.value })} />
         </L>
@@ -185,7 +238,7 @@ function NewNovelDialog({ onClose, convert = false }: { onClose: () => void; con
           </L>
         </div>
         <div className="col-span-2">
-          <L label={series ? 'Series premise (optional)' : 'Premise (optional; the AI uses it as a starting point)'}>
+          <L label={universe ? 'Universe premise (optional)' : series ? 'Series premise (optional)' : 'Premise (optional; the AI uses it as a starting point)'}>
             <textarea className="field w-full resize-none" rows={3} value={o.premise} onChange={(e) => up({ premise: e.target.value })} placeholder="A lighthouse keeper discovers the ships she's been guiding home are from forty years in the future…" />
           </L>
         </div>
@@ -196,7 +249,7 @@ function NewNovelDialog({ onClose, convert = false }: { onClose: () => void; con
               <button
                 className="btn"
                 onClick={async () => {
-                  const d = await api.app.pickFolder('Where should the novel be saved?')
+                  const d = await api.app.pickFolder(universe ? 'Where should the universe be saved?' : 'Where should the novel be saved?')
                   if (d) setDir(d)
                 }}
               >
@@ -204,7 +257,9 @@ function NewNovelDialog({ onClose, convert = false }: { onClose: () => void; con
               </button>
             </div>
             <span className="mt-1 block text-[11.5px] text-faint">
-              {series
+              {universe
+                ? 'A universe folder is created here, holding the universe bible, the universe outline, and a folder for each series and standalone.'
+                : series
                 ? 'A series folder is created here, holding the shared series bible, the series outline and one folder per book.'
                 : "If the folder isn't empty, a subfolder named after the title is created."}
             </span>
@@ -550,11 +605,74 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
                   Daily goal (words)
                   <input type="number" min={0} step={100} className="field mt-1 w-full text-fg" value={cfg.dailyGoal} onChange={(e) => setCfg({ ...cfg, dailyGoal: Number(e.target.value) || 0 })} />
                 </label>
+                <label>
+                  Format
+                  <select
+                    className="field mt-1 w-full text-fg"
+                    value={cfg.format ?? 'novel'}
+                    onChange={(e) => {
+                      const format = e.target.value as BookFormat
+                      const next: NovelConfig = { ...cfg, format }
+                      if (format === 'novel') delete next.format
+                      setCfg(next)
+                    }}
+                  >
+                    <option value="novel">Novel</option>
+                    <option value="novella">Novella</option>
+                    <option value="short-story">Short story</option>
+                  </select>
+                </label>
               </div>
+              {project.universe && (
+                <div className="mt-4 rounded-lg border border-line p-3 text-[12.5px] text-muted">
+                  <div className="mb-0.5 font-medium text-fg">Crossover</div>
+                  <p className="mb-2 text-[12px] leading-relaxed text-faint">
+                    If this book tells one part of a story that crosses into other books in the universe, name the event and say which part this is. Books with the same event name are linked, and the AI reads the earlier parts before writing this one.
+                  </p>
+                  <div className="grid grid-cols-[1fr_110px] gap-x-4">
+                    <label>
+                      Event
+                      <input
+                        className="field mt-1 w-full text-fg"
+                        list="crossover-events"
+                        placeholder="Not part of a crossover"
+                        value={cfg.crossover?.event ?? ''}
+                        onChange={(e) => {
+                          const event = e.target.value
+                          const next: NovelConfig = { ...cfg, crossover: { event, part: cfg.crossover?.part ?? 1 } }
+                          if (!event.trim()) delete next.crossover
+                          setCfg(next)
+                        }}
+                      />
+                      <datalist id="crossover-events">
+                        {project.universe.crossovers.map((c) => (
+                          <option key={c.event} value={c.event} />
+                        ))}
+                      </datalist>
+                    </label>
+                    <label>
+                      Part
+                      <input
+                        type="number"
+                        min={1}
+                        className="field mt-1 w-full text-fg"
+                        disabled={!cfg.crossover}
+                        value={cfg.crossover?.part ?? 1}
+                        onChange={(e) => cfg.crossover && setCfg({ ...cfg, crossover: { ...cfg.crossover, part: Math.max(1, Number(e.target.value) || 1) } })}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
               <div className="mt-4 flex flex-wrap gap-2">
                 <button className="btn text-[12.5px]" onClick={() => void api.app.openPath(project.root)}>
                   <FolderOpen size={13} /> Open book folder
                 </button>
+                {project.universe && (
+                  <button className="btn text-[12.5px]" onClick={() => set({ dialog: null, sidebar: 'series' })}>
+                    <Orbit size={13} /> Universe
+                  </button>
+                )}
                 {project.series ? (
                   <button className="btn text-[12.5px]" onClick={() => set({ dialog: null, sidebar: 'series' })}>
                     <Library size={13} /> Series settings

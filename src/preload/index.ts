@@ -54,6 +54,12 @@ const api = {
     saveConfig: inv('series:saveConfig'),
     convert: inv('series:convert')
   },
+  universe: {
+    load: inv('universe:load'),
+    saveConfig: inv('universe:saveConfig'),
+    addSeries: inv('universe:addSeries'),
+    addStandalone: inv('universe:addStandalone')
+  },
   brainstorm: {
     list: inv('brainstorm:list'),
     create: inv('brainstorm:create'),

@@ -234,7 +234,7 @@ export const BUILTIN_COMMANDS: Record<string, CommandDef> = {
   wordcount: { description: 'Show word count and progress', local: true },
   goal: { description: 'Set daily word goal', args: '<words>', local: true },
   resume: { description: 'Browse past conversations', local: true },
-  new: { description: 'Create a new novel or series project', local: true },
+  new: { description: 'Create a new novel, series or universe', local: true },
   'new-brainstorm': { description: 'Start a brainstorm chat (no project needed)', local: true },
   'add-book': { description: 'Add a new book to this series', args: '<title>', local: true },
   'make-series': { description: 'Turn this novel into book 1 of a series', args: '<series title>', local: true }

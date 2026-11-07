@@ -71,4 +71,84 @@ describe.skipIf(!E2E)('universe in the app', () => {
       await app.close()
     }
   }, 120000)
+
+  it('creates a universe, adds a standalone novella, moves between books and links a crossover', async () => {
+    fs.mkdirSync(shots, { recursive: true })
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'novel-e2e-universe-new-'))
+    const userData = path.join(base, 'userdata')
+    fs.mkdirSync(userData)
+    fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify({ lastSeenVersion: SEEN_VERSION, recent: [], theme: 'dark' }))
+    const target = path.join(base, 'projects')
+    fs.mkdirSync(target)
+    const env = { ...process.env, NOVEL_CODER_USER_DATA: userData } as Record<string, string>
+    delete env.ELECTRON_RUN_AS_NODE
+    const app = await electron.launch({ args: [path.resolve('out/main/index.js')], env })
+    try {
+      const page = await app.firstWindow()
+      await page.setViewportSize({ width: 1500, height: 920 })
+      await app.evaluate(({ dialog }, dir) => {
+        dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [dir] })) as never
+      }, target)
+      page.setDefaultTimeout(8000)
+      const title = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())
+
+      // New universe, starting with a series
+      await page.click('button:has-text("New novel, series or universe")')
+      await page.click('button:has-text("Many series, one world")')
+      await page.fill('input[placeholder="The Vanguard Universe"]', 'The Vanguard Universe')
+      await page.fill('input[placeholder="The Lantern Cycle"]', 'Iron Saint')
+      await page.fill('input[placeholder="Book one title"]', 'Origin of Iron')
+      await page.click('button:has-text("Browse")')
+      await page.screenshot({ path: path.join(shots, '22-new-universe.png') })
+      await page.click('button:has-text("Create universe")')
+      await page.waitForSelector('footer', { timeout: 30000 })
+      await expect.poll(title).toContain('Origin of Iron · Iron Saint · The Vanguard Universe')
+      expect(fs.existsSync(path.join(target, 'universe.json'))).toBe(true)
+      expect(fs.existsSync(path.join(target, 'Iron Saint', 'series.json'))).toBe(true)
+
+      // The Universe tab replaces the Series tab
+      expect(await page.locator('button[title="Series"]').count()).toBe(0)
+      await page.click('button[title="Universe"]')
+      const panel = page.getByTestId('universe-panel')
+      await panel.locator('text=Iron Saint').first().waitFor()
+
+      // A standalone novella
+      await panel.locator('button', { hasText: 'New standalone' }).click()
+      await panel.locator('input[placeholder="The Long Night"]').fill('The Long Night')
+      await panel.locator('select').selectOption('novella')
+      await panel.locator('button', { hasText: 'Create and open' }).click()
+      await expect.poll(title).toContain('The Long Night · The Vanguard Universe')
+      const novella = path.join(target, 'The Long Night')
+      expect(JSON.parse(fs.readFileSync(path.join(novella, 'novel.json'), 'utf8'))).toMatchObject({ format: 'novella', targetWords: 30000 })
+      await page.getByTestId('universe-panel').locator('text=Novella').first().waitFor()
+
+      // Back to the series book through the universe tree
+      await page.getByTestId('universe-panel').locator('button[aria-expanded]', { hasText: 'Iron Saint' }).click()
+      await page.getByTestId('universe-panel').locator('button', { hasText: 'Origin of Iron' }).click()
+      await expect.poll(title).toContain('Origin of Iron · Iron Saint')
+
+      // Make it part 1 of a crossover in the book's settings
+      await page.keyboard.press('Control+,')
+      await page.fill('input[placeholder="Not part of a crossover"]', 'Blackout')
+      await page.click('button:has-text("Save changes")')
+      const book = path.join(target, 'Iron Saint', fs.readdirSync(path.join(target, 'Iron Saint')).find((d) => /^01-/.test(d))!)
+      await expect.poll(() => JSON.parse(fs.readFileSync(path.join(book, 'novel.json'), 'utf8')).crossover).toEqual({ event: 'Blackout', part: 1 })
+      await page.keyboard.press('Escape')
+      await page.click('button[title="Universe"]')
+      await page.getByTestId('universe-panel').locator('text=Blackout').first().waitFor()
+      await page.screenshot({ path: path.join(shots, '23-universe-panel.png') })
+      // The other books' instructions now list the crossover's part
+      await expect.poll(() => fs.readFileSync(path.join(book, 'AGENTS.md'), 'utf8')).toContain('part 1 of the crossover event "Blackout"')
+
+      // Library covers name the universe; opening the universe folder itself opens its most recent book
+      await page.click('button:has-text("Library")')
+      await page.locator('text=Your library').waitFor()
+      expect(await page.locator('text=The Vanguard Universe').count()).toBeGreaterThan(0)
+      await page.screenshot({ path: path.join(shots, '24-universe-library.png') })
+      await page.locator('button', { hasText: 'Open novel' }).first().click()
+      await expect.poll(title).toContain('Origin of Iron · Iron Saint · The Vanguard Universe')
+    } finally {
+      await app.close()
+    }
+  }, 120000)
 })

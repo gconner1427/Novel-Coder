@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type {
   AuthStatus,
+  BookFormat,
   CodexCatalog,
   BrainstormSummary,
   IdeaFields,
@@ -79,7 +80,9 @@ interface State {
   goToLibrary: () => Promise<void>
   convertBrainstorm: (dir: string, opts: ScaffoldOptions) => Promise<void>
   openBook: (bookRoot: string) => Promise<void>
-  addBook: (title: string) => Promise<void>
+  addBook: (title: string, seriesRoot?: string) => Promise<void>
+  addSeries: (seriesTitle: string, firstBookTitle: string) => Promise<void>
+  addStandalone: (title: string, format?: BookFormat) => Promise<void>
   makeSeries: (title: string, plannedBooks: number) => Promise<void>
   refreshSessions: () => Promise<void>
   newChat: () => Promise<void>
@@ -245,7 +248,7 @@ export const useStore = create<State>((set, get) => ({
       todos: [],
       usage: { input: 0, output: 0, cost: 0 },
       handoff: null,
-      sidebar: get().sidebar === 'series' && !p.series ? 'manuscript' : get().sidebar
+      sidebar: get().sidebar === 'series' && !p.series && !p.universe ? 'manuscript' : get().sidebar
     })
     const first = p.chapters[0]?.scenes[0]
     set({ tabs: first ? [{ kind: 'file', path: first.path }] : [{ kind: 'progress' }], active: first ? `file:${first.path}` : 'progress' })
@@ -339,10 +342,25 @@ export const useStore = create<State>((set, get) => ({
     await get().loadProject(await api.series.openBook(bookRoot))
   },
 
-  addBook: async (title) => {
+  addBook: async (title, seriesRoot) => {
     if (get().busy) await get().interrupt()
-    await get().loadProject(await api.series.addBook(title))
-    get().notify(`Added "${title}" to the series.`)
+    const p = await api.series.addBook(title, seriesRoot)
+    await get().loadProject(p)
+    get().notify(`Added "${title}" to ${p.series ? p.series.config.title : 'the series'}.`)
+  },
+
+  addSeries: async (seriesTitle, firstBookTitle) => {
+    if (get().busy) await get().interrupt()
+    await get().loadProject(await api.universe.addSeries(seriesTitle, firstBookTitle))
+    set({ sidebar: 'series' })
+    get().notify(`Added the series "${seriesTitle}" to the universe. You're in its first book, "${firstBookTitle}".`)
+  },
+
+  addStandalone: async (title, format) => {
+    if (get().busy) await get().interrupt()
+    await get().loadProject(await api.universe.addStandalone(title, format))
+    set({ sidebar: 'series' })
+    get().notify(`Added "${title}" to the universe.`)
   },
 
   makeSeries: async (title, plannedBooks) => {

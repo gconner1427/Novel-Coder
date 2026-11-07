@@ -17,8 +17,27 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '0.4.0',
-    summary: 'Build your story bible your way, with categories you design.',
+    summary: 'Shared universes: several series and standalone books in one world, with a universe-wide story bible and crossovers. Plus story bible categories you design.',
     items: [
+      {
+        title: 'Shared universes',
+        body:
+          "Choose Universe in the New dialog to create a world that holds several series and standalone books. You start it with a series or a standalone. The Universe tab (it replaces the Series tab) lists every series and standalone. Click any book to switch to it. You can add a book to any series, start a new series, or add a standalone novel, novella or short story. Click the universe name in the title bar to get back to it. Opening a universe's folder from the library opens the book you were last working on."
+      },
+      {
+        title: 'A story bible for the whole universe',
+        body:
+          "Characters, teams, places and rules that appear in more than one series go in the universe bible, which every book in the universe shares. The Story Bible now has a Universe filter beside Series and Book, and each entry is marked with the bible it lives in. A series or book can keep its own version of a universe character, and the closest version wins. The AI knows every book in the universe, can see every scene where a character has already appeared, and keeps crossing characters consistent."
+      },
+      {
+        title: 'Crossovers',
+        body:
+          "When one story is told across books in different series, open Settings, go to This book, and give each book the same crossover event name and its part number. The Universe tab lists each crossover and its parts in order. When the AI writes part 2, it reads part 1's premise and scene summaries first, and it sets up what later parts need. Use the sparkle beside a crossover to plan or check it with the AI."
+      },
+      {
+        title: 'Novellas and short stories',
+        body: 'Any book can be a novel, novella or short story. Choose the format when you create the book, or later in Settings under This book. A novella starts with a 30,000-word target and a short story with 7,500.'
+      },
       {
         title: 'Story bible categories you design',
         body:

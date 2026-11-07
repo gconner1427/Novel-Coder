@@ -3,6 +3,9 @@ import type {
   BibleCategory,
   BibleEntry,
   BibleScope,
+  BookFormat,
+  UniverseConfig,
+  UniverseInfo,
   BibleKind,
   BrainstormSummary,
   IdeaFields,
@@ -48,10 +51,14 @@ export interface ScaffoldOptions {
   dailyGoal?: number
   beatSheet?: 'save-the-cat' | 'three-act' | 'heros-journey'
   premise?: string
-  kind?: 'novel' | 'series'
+  kind?: 'novel' | 'series' | 'universe'
   seriesTitle?: string
   plannedBooks?: number
   description?: string
+  format?: BookFormat
+  /** Universe only: its title, and whether it starts with a series or a standalone book. */
+  universeTitle?: string
+  firstKind?: 'series' | 'standalone'
 }
 
 export interface AiSyncResult {
@@ -125,10 +132,18 @@ export interface NovelApi {
     deleteCategory(slug: string, scope?: BibleScope): Promise<void>
   }
   series: {
-    addBook(title: string): Promise<ProjectSnapshot>
+    /** Adds to this book's series, or (in a universe) to the series at seriesRoot. Opens the new book. */
+    addBook(title: string, seriesRoot?: string): Promise<ProjectSnapshot>
     openBook(bookRoot: string): Promise<ProjectSnapshot>
     saveConfig(cfg: SeriesConfig): Promise<void>
     convert(seriesTitle: string, plannedBooks: number): Promise<ProjectSnapshot>
+  }
+  universe: {
+    /** The open book's universe with word counts (the project snapshot leaves them out). */
+    load(): Promise<UniverseInfo | undefined>
+    saveConfig(cfg: UniverseConfig): Promise<void>
+    addSeries(seriesTitle: string, firstBookTitle: string, plannedBooks?: number): Promise<ProjectSnapshot>
+    addStandalone(title: string, format?: BookFormat): Promise<ProjectSnapshot>
   }
   brainstorm: {
     list(): Promise<BrainstormSummary[]>

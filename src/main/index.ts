@@ -36,6 +36,13 @@ import {
   isInside,
   loadUniverseConfig,
   universeBookRoots,
+  isUniverseRoot,
+  isSeriesRoot,
+  loadUniverse,
+  saveUniverseConfig,
+  scaffoldUniverse,
+  addSeriesToUniverse,
+  addStandaloneToUniverse,
   saveBibleCategory,
   deleteBibleCategory,
   type CategoryOptions,
@@ -43,7 +50,7 @@ import {
   type SeriesScaffoldOptions
 } from '@shared/project'
 import { createSnapshot, listSnapshots, restoreSnapshot } from '@shared/snapshots'
-import type { BibleKind, BibleScope, EngineId, SeriesConfig, EngineEvent, EngineSettings, ExportFormat, NovelConfig, PermissionMode, PermissionResponse, SceneMeta, SendOptions, SessionRecord } from '@shared/types'
+import type { BibleKind, BibleScope, BookFormat, UniverseConfig, EngineId, SeriesConfig, EngineEvent, EngineSettings, ExportFormat, NovelConfig, PermissionMode, PermissionResponse, SceneMeta, SendOptions, SessionRecord } from '@shared/types'
 import type { Engine } from './engines/engine'
 import { ClaudeEngine } from './engines/claudeEngine'
 import { CodexEngine } from './engines/codexEngine'
@@ -170,7 +177,20 @@ function windowTitle(dir: string): string {
   return `${loadConfig(dir).title}${around.map((t) => ` · ${t}`).join('')} | Novel Coder`
 }
 
+/** A series or universe folder opens one of its books: the one opened most recently, else the first. */
+function bookToOpen(dir: string): string | null {
+  const books = isUniverseRoot(dir) ? universeBookRoots(dir) : isSeriesRoot(dir) ? listBooks(dir, undefined, true).map((b) => b.root) : []
+  if (!books.length) return null
+  const recent = getSettings().recent.find((r) => books.some((b) => path.resolve(b) === path.resolve(r)))
+  return recent ?? books[0]
+}
+
 async function openProject(dir: string) {
+  if (!isNovelProject(dir)) {
+    const book = bookToOpen(dir)
+    if (book) return openProject(book)
+    if (isUniverseRoot(dir) || isSeriesRoot(dir)) throw new Error(`That ${isUniverseRoot(dir) ? 'universe' : 'series'} has no books yet.`)
+  }
   if (!isNovelProject(dir)) throw new Error('That folder is not a Novel Coder project (no novel.json). Use "New Novel" instead.')
   engine?.close()
   engine = null
@@ -260,10 +280,37 @@ function registerIpc() {
   })
 
   // series
-  handle('series:addBook', async (title: string) => {
-    const sr = findSeriesRoot(requireRoot())
-    if (!sr) throw new Error('This book is not part of a series.')
+  handle('series:addBook', async (title: string, seriesRoot?: string) => {
+    // Another series in the same universe, or this book's own series.
+    const r = requireRoot()
+    const u = findUniverseRoot(r)
+    const sr = seriesRoot ? (u && isInside(u, seriesRoot) && isSeriesRoot(seriesRoot) ? seriesRoot : null) : findSeriesRoot(r)
+    if (!sr) throw new Error(seriesRoot ? 'That series is not in this universe.' : 'This book is not part of a series.')
     return openProject(addBookToSeries(sr, title))
+  })
+
+  // universe
+  const requireUniverse = () => {
+    const u = findUniverseRoot(requireRoot())
+    if (!u) throw new Error('This book is not part of a universe.')
+    return u
+  }
+  handle('universe:load', () => {
+    const r = requireRoot()
+    return loadUniverse(r)
+  })
+  handle('universe:saveConfig', (cfg: UniverseConfig) => {
+    saveUniverseConfig(requireUniverse(), cfg)
+    win?.setTitle(windowTitle(requireRoot()))
+    projectChanged()
+  })
+  handle('universe:addSeries', async (seriesTitle: string, firstBookTitle: string, plannedBooks?: number) => {
+    const u = requireUniverse()
+    return openProject(addSeriesToUniverse(u, { seriesTitle, firstBookTitle, plannedBooks }))
+  })
+  handle('universe:addStandalone', async (title: string, format?: BookFormat) => {
+    const u = requireUniverse()
+    return openProject(addStandaloneToUniverse(u, { title, format }))
   })
   handle('series:openBook', (bookRoot: string) => {
     // Any other book in the same series or universe.
@@ -486,11 +533,29 @@ function registerIpc() {
   })
 }
 
-type CreateOptions = ScaffoldOptions & { kind?: 'novel' | 'series'; seriesTitle?: string; plannedBooks?: number; description?: string }
+type CreateOptions = ScaffoldOptions & {
+  kind?: 'novel' | 'series' | 'universe'
+  seriesTitle?: string
+  plannedBooks?: number
+  description?: string
+  /** Universe only: its title, and whether it starts with a series or a standalone book. */
+  universeTitle?: string
+  firstKind?: 'series' | 'standalone'
+}
 
-/** Create a standalone novel or a series; returns the root of the book to open. */
+/** Create a standalone novel, a series or a universe; returns the root of the book to open. */
 function createProject(dir: string, opts: CreateOptions): string {
   const clean = (t: string, d: string) => t.replace(/[<>:"/\\|?*]+/g, '').trim() || d
+  if (opts.kind === 'universe') {
+    const universeTitle = opts.universeTitle || opts.title
+    if (fs.existsSync(dir) && fs.readdirSync(dir).length) dir = path.join(dir, clean(universeTitle, 'My Universe'))
+    const { kind: _k, universeTitle: _u, firstKind, description, ...book } = opts
+    scaffoldUniverse(dir, { title: universeTitle, author: book.author, genre: book.genre, pov: book.pov, tense: book.tense, description })
+    if (firstKind === 'series') {
+      return addSeriesToUniverse(dir, { ...book, seriesTitle: opts.seriesTitle || opts.title, firstBookTitle: opts.title, plannedBooks: opts.plannedBooks })
+    }
+    return addStandaloneToUniverse(dir, book)
+  }
   if (opts.kind === 'series') {
     const seriesTitle = opts.seriesTitle || opts.title
     if (fs.existsSync(dir) && fs.readdirSync(dir).length) dir = path.join(dir, clean(seriesTitle, 'My Series'))

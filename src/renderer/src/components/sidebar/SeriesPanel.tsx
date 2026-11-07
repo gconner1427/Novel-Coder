@@ -5,8 +5,8 @@ import { useStore } from '../../store'
 import { InlineInput } from './Sidebar'
 import type { SeriesConfig } from '@shared/types'
 
-/** Books in the series, series-level files, series settings and AI helpers. */
-export function SeriesPanel() {
+/** Books in the series, series-level files, series settings and AI helpers. Embedded in the universe panel, it leaves out the book list (the universe tree shows it). */
+export function SeriesPanel({ embedded = false }: { embedded?: boolean }) {
   const project = useStore((s) => s.project)!
   const openBook = useStore((s) => s.openBook)
   const addBook = useStore((s) => s.addBook)
@@ -84,8 +84,8 @@ export function SeriesPanel() {
         </div>
       )}
 
-      <div className="px-3 pb-1 pt-1 section-label">Books</div>
-      {series.books.map((b) => (
+      {!embedded && <div className="px-3 pb-1 pt-1 section-label">Books</div>}
+      {!embedded && series.books.map((b) => (
         <button
           key={b.root}
           disabled={b.current}
@@ -103,7 +103,7 @@ export function SeriesPanel() {
           {b.current ? <Check size={13} className="text-accent" /> : <BookOpen size={13} className="text-faint" />}
         </button>
       ))}
-      {adding ? (
+      {embedded ? null : adding ? (
         <InlineInput
           placeholder={`Title of book ${series.books.length + 1}`}
           onCancel={() => setAdding(false)}

@@ -15,7 +15,9 @@ function clothFor(title: string): string {
 }
 
 /** A generated cloth-bound cover: spine shadow, a soft lamp highlight and brass-foil lettering. */
-function Cover({ book }: { book: Pick<ShelfBook, 'title' | 'author' | 'seriesTitle' | 'seriesNumber'> }) {
+const FORMAT_LINE: Record<string, string> = { novella: 'A novella', 'short-story': 'A short story' }
+
+function Cover({ book }: { book: Pick<ShelfBook, 'title' | 'author' | 'seriesTitle' | 'seriesNumber' | 'universeTitle' | 'format'> }) {
   const cloth = clothFor(book.title)
   // Fit the foil lettering to the cover: long words get a smaller size so they stay inside the frame.
   const longest = Math.max(...book.title.split(/\s+/).map((w) => w.length))
@@ -34,10 +36,14 @@ function Cover({ book }: { book: Pick<ShelfBook, 'title' | 'author' | 'seriesTit
       }}
     >
       <span className="pointer-events-none absolute inset-[9px] left-[14px] rounded-[2px] border" style={{ borderColor: 'rgba(222,186,115,.32)' }} />
-      {book.seriesTitle && (
+      {book.universeTitle && (
+        <span className="mb-1 line-clamp-2 text-balance text-[8.5px] font-semibold uppercase leading-snug tracking-[0.12em]" style={{ color: 'rgba(230,200,140,.55)' }}>
+          {book.universeTitle}
+        </span>
+      )}
+      {(book.seriesTitle || (book.format && FORMAT_LINE[book.format])) && (
         <span className="mb-2 line-clamp-2 text-balance text-[9.5px] font-medium leading-snug tracking-[0.04em]" style={{ color: 'rgba(230,200,140,.7)' }}>
-          {book.seriesTitle}
-          {book.seriesNumber ? `, book ${book.seriesNumber}` : ''}
+          {book.seriesTitle ? `${book.seriesTitle}${book.seriesNumber ? `, book ${book.seriesNumber}` : ''}` : FORMAT_LINE[book.format!]}
         </span>
       )}
       <span className="mt-2 text-balance break-words font-semibold leading-[1.18]" style={{ fontSize: size, maxWidth: '100%', fontFamily: 'var(--font-prose)', color: '#e6c482', textShadow: '0 1px 0 rgba(0,0,0,.35)' }}>
@@ -158,10 +164,10 @@ export function Welcome() {
               <div className="flex flex-col rounded-2xl border border-line-strong bg-panel p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
                 <Plus size={18} className="mb-3 text-accent" />
                 <div className="mb-1 font-semibold">I know what I'm writing</div>
-                <p className="mb-4 text-[12.5px] leading-relaxed text-faint">Start a new novel or series, or open a Novel Coder folder you already have.</p>
+                <p className="mb-4 text-[12.5px] leading-relaxed text-faint">Start a new novel, series or shared universe, or open a Novel Coder folder you already have.</p>
                 <div className="mt-auto flex flex-wrap gap-2">
                   <button className="btn btn-primary" onClick={() => set({ dialog: 'new' })}>
-                    <Plus size={14} /> New novel or series
+                    <Plus size={14} /> New novel, series or universe
                   </button>
                   <button className="btn" onClick={() => void open()}>
                     <FolderOpen size={14} /> Open novel
@@ -185,7 +191,7 @@ export function Welcome() {
                 <FolderOpen size={14} /> Open novel
               </button>
               <button className="btn btn-primary" onClick={() => set({ dialog: 'new' })}>
-                <Plus size={14} /> New novel or series
+                <Plus size={14} /> New novel, series or universe
               </button>
             </div>
 

@@ -1,4 +1,4 @@
-import { BookOpen, PanelLeft, PanelRight, Settings, Feather, Maximize2, Lightbulb, Library, LibraryBig, ChevronRight } from 'lucide-react'
+import { BookOpen, PanelLeft, PanelRight, Settings, Feather, Maximize2, Lightbulb, Library, LibraryBig, ChevronRight, Orbit } from 'lucide-react'
 import { useStore } from '../store'
 import type { EngineId } from '@shared/types'
 
@@ -41,6 +41,19 @@ export function TitleBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen: boolea
             <PanelLeft size={15} className={sidebarOpen ? 'text-fg' : ''} />
           </button>
           <div className="flex min-w-0 items-center gap-1.5 text-[12.5px] text-muted">
+            {project.universe && (
+              <>
+                <button
+                  className="no-drag flex min-w-0 items-center gap-1.5 rounded px-1 hover:bg-panel2 hover:text-fg"
+                  title="Show the universe"
+                  onClick={() => set({ sidebar: 'series' })}
+                >
+                  <Orbit size={13} className="shrink-0 text-faint" />
+                  <span className="truncate">{project.universe.config.title}</span>
+                </button>
+                <ChevronRight size={12} className="shrink-0 text-faint" />
+              </>
+            )}
             {project.series && (
               <>
                 <Library size={13} className="text-faint" />
