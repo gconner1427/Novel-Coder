@@ -10,6 +10,14 @@ import {
   addBookToSeries,
   addSeriesToUniverse,
   addStandaloneToUniverse,
+  convertToUniverse,
+  moveIntoUniverse,
+  parseTimeline,
+  readScene,
+  saveReadingOrder,
+  scaffoldSeries,
+  universeOverview,
+  universeReadingOrder,
   containerRoot,
   continuityContext,
   deleteBibleCategory,
@@ -28,7 +36,7 @@ import {
   scaffoldUniverse,
   shelfBook,
   upsertBibleEntry,
-  writeScene
+  writeScene,
 } from '@shared/project'
 import { createSnapshot, snapshotBase } from '@shared/snapshots'
 import { buildServer } from '../src/mcp/novel-server'
@@ -179,6 +187,87 @@ describe('universe', () => {
     expect(fs.readFileSync(path.join(night1, 'AGENTS.md'), 'utf8')).toContain(`Part 1: Iron Falls (Iron Saint), \`../../Iron Saint/${path.basename(iron2)}/\``)
     expect(continuityContext(novella, OPENING)).not.toContain('Crossover')
     expect(u).toBeTruthy()
+  })
+})
+
+describe('bringing existing work into a universe', () => {
+  it('turns a series, with every book, into a new universe', () => {
+    const s = path.join(tmp, 'Iron Saint')
+    const book1 = scaffoldSeries(s, { seriesTitle: 'Iron Saint', firstBookTitle: 'Origin', genre: 'Superhero' })
+    const book2 = addBookToSeries(s, 'Falls')
+    saveBibleCategory(book1, 'Powers', 'series', { fields: ['source'] })
+    writeScene(book2, OPENING, {}, 'Keep me.')
+    const moved = convertToUniverse(book2, 'Vanguard', 'Heroes everywhere.')
+    const u = path.join(tmp, 'Vanguard')
+    expect(fs.existsSync(s)).toBe(false)
+    expect(moved).toBe(path.join(u, 'Iron Saint', path.basename(book2)))
+    expect(findUniverseRoot(moved)).toBe(path.resolve(u))
+    expect(readScene(moved, OPENING).body.trim()).toBe('Keep me.')
+    expect(loadProject(moved).universe?.series[0].books.map((b) => b.title)).toEqual(['Origin', 'Falls'])
+    expect(loadProject(moved).universe?.config).toMatchObject({ title: 'Vanguard', genre: 'Superhero', description: 'Heroes everywhere.' })
+    // The universe bible starts with the categories the series used
+    expect(listBibleCategories(moved).find((c) => c.slug === 'powers')).toMatchObject({ scopes: ['series', 'universe'], fields: ['source'] })
+    // Every moved book's instructions now describe the universe
+    expect(fs.readFileSync(path.join(u, 'Iron Saint', path.basename(book1), 'AGENTS.md'), 'utf8')).toContain('This book is part of a shared universe')
+    expect(() => convertToUniverse(moved, 'Again')).toThrow(/already part of a universe/)
+  })
+
+  it('turns a standalone into a universe, and moves others into it', () => {
+    const solo = path.join(tmp, 'Long Night')
+    scaffoldProject(solo, { title: 'The Long Night' })
+    const moved = convertToUniverse(solo, 'Vanguard')
+    const u = findUniverseRoot(moved)!
+    expect(path.dirname(moved)).toBe(path.resolve(u))
+    expect(loadProject(moved).universe?.standalones.map((b) => b.title)).toEqual(['The Long Night'])
+    // An existing series joins it, keeping its folder name
+    const s = path.join(tmp, 'Night Court')
+    const gavel = scaffoldSeries(s, { seriesTitle: 'Night Court', firstBookTitle: 'Gavel' })
+    const gavelMoved = moveIntoUniverse(gavel, u)
+    expect(gavelMoved).toBe(path.join(u, 'Night Court', path.basename(gavel)))
+    // A second standalone with a clashing folder name gets a free one
+    const other = path.join(tmp, 'elsewhere', 'Long Night')
+    scaffoldProject(other, { title: 'Another Night' })
+    expect(path.basename(moveIntoUniverse(other, u))).toBe('Long Night (2)')
+    expect(universeReadingOrder(u).map((b) => b.title)).toEqual(['Gavel', 'The Long Night', 'Another Night'])
+    expect(() => moveIntoUniverse(gavelMoved, u)).toThrow(/already part of a universe/)
+    expect(() => moveIntoUniverse(path.join(tmp, 'nowhere'), tmp)).toThrow(/not a universe/)
+  })
+})
+
+describe('reading order, chronicle and appearances', () => {
+  it('keeps the author\'s reading order and tells the AI', () => {
+    const { u, iron1, iron2, night1, novella } = makeUniverse()
+    const key = (r: string) => path.relative(u, r).split(path.sep).join('/')
+    expect(universeReadingOrder(u).map((b) => b.title)).toEqual(['Origin of Iron', 'Iron Falls', 'Gavel', 'The Long Night'])
+    saveReadingOrder(u, [key(iron1), key(novella), key(night1)])
+    // Books left out of the saved order follow it
+    expect(universeReadingOrder(u).map((b) => b.title)).toEqual(['Origin of Iron', 'The Long Night', 'Gavel', 'Iron Falls'])
+    expect(fs.readFileSync(path.join(iron2, 'AGENTS.md'), 'utf8')).toContain('Reading order (as the author wants readers to read them): 1. Origin of Iron (Iron Saint 1); 2. The Long Night; 3. Gavel (Night Court 1); 4. Iron Falls (Iron Saint 2) (this book)')
+  })
+
+  it('parses timelines and counts where universe entries appear', () => {
+    expect(parseTimeline('# T\n\n| When | Event | Book |\n|------|-------|------|\n| Year 1 | Blackout | Falls |\n| Year 2 | Trial | |\n\nAfter')).toEqual([
+      { when: 'Year 1', event: 'Blackout', where: 'Falls' },
+      { when: 'Year 2', event: 'Trial', where: '' }
+    ])
+    const { u, iron1, night1 } = makeUniverse()
+    upsertBibleEntry(iron1, 'characters', 'Mara Voss', { aliases: ['Iron Saint'] }, '', 'merge', 'universe')
+    writeScene(iron1, OPENING, { characters: ['Mara Voss'] }, 'Steel.')
+    writeScene(night1, OPENING, {}, 'They feared the Iron Saint.')
+    fs.appendFileSync(path.join(u, 'bible', 'timeline.md'), '| Year 1 | The Blackout | Iron Falls |\n')
+    fs.appendFileSync(path.join(night1, 'bible', 'timeline.md'), '| Day 1 | Court opens | 1 |\n')
+    const ov = universeOverview(night1)!
+    expect(ov.books.map((b) => [b.title, b.path])).toEqual([
+      ['Origin of Iron', `../../Iron Saint/${path.basename(iron1)}`],
+      ['Iron Falls', expect.stringMatching(/^\.\.\/\.\.\/Iron Saint\//)],
+      ['Gavel', '.'],
+      ['The Long Night', '../../The Long Night']
+    ])
+    expect(ov.appearances.entries.map((e) => e.name)).toEqual(['Mara Voss'])
+    expect(ov.appearances.counts[0]).toEqual([1, 0, 1, 0])
+    expect(ov.chronicle.map((c) => c.source)).toEqual(['Universe', 'Gavel'])
+    expect(ov.chronicle[0].rows[0]).toEqual({ when: 'Year 1', event: 'The Blackout', where: 'Iron Falls' })
+    expect(ov.chronicle[1].path).toBe('bible/timeline.md')
   })
 })
 

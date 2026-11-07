@@ -35,6 +35,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "When one story is told across books in different series, open Settings, go to This book, and give each book the same crossover event name and its part number. The Universe tab lists each crossover and its parts in order. When the AI writes part 2, it reads part 1's premise and scene summaries first, and it sets up what later parts need. Use the sparkle beside a crossover to plan or check it with the AI."
       },
       {
+        title: 'Bring your existing books into a universe',
+        body:
+          "A series, with all its books, or a standalone novel can now join a universe. Click Bring into a universe in the Series tab, or type /make-universe in the chat. You can start a new universe around it or move it into one you already have. The books themselves don't change, and the AI's memory and chats move with them. A snapshot is taken first. A standalone that's already in a universe can be turned into a series from the Universe tab."
+      },
+      {
+        title: 'Universe overview',
+        body:
+          "Click Universe overview in the Universe tab to see the whole universe on one page. Reading order lists every book in the order readers should read them; move books up or down to change it, and the AI follows that order too. Who appears where shows, for each character or place in the universe bible, how many scenes of each book they're in. Timelines shows the universe timeline, then each series and book timeline in reading order. Click any book, entry or timeline to open it."
+      },
+      {
         title: 'Novellas and short stories',
         body: 'Any book can be a novel, novella or short story. Choose the format when you create the book, or later in Settings under This book. A novella starts with a 30,000-word target and a short story with 7,500.'
       },

@@ -6,7 +6,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { _electron as electron } from 'playwright'
-import { addSeriesToUniverse, addStandaloneToUniverse, listBibleCategories, listBible, scaffoldUniverse, upsertBibleEntry } from '@shared/project'
+import { addBookToSeries, addSeriesToUniverse, addStandaloneToUniverse, listBibleCategories, listBible, scaffoldSeries, scaffoldUniverse, upsertBibleEntry, writeScene } from '@shared/project'
+import { claudeProjectKey } from '../src/main/services/aisync'
 
 const SEEN_VERSION = JSON.parse(fs.readFileSync('package.json', 'utf8')).version as string
 const E2E = process.env.E2E === '1'
@@ -67,6 +68,69 @@ describe.skipIf(!E2E)('universe in the app', () => {
       await bible.locator('text=Steel Skin').waitFor()
       await expect.poll(() => listBible(root, 'powers-abilities').map((e) => [e.name, e.scope])).toEqual([['Steel Skin', 'universe']])
       await page.screenshot({ path: path.join(shots, '21-universe-category.png') })
+    } finally {
+      await app.close()
+    }
+  }, 120000)
+
+  it('brings an existing series into a new universe, keeping the AI memory, and shows the overview', async () => {
+    fs.mkdirSync(shots, { recursive: true })
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'novel-e2e-universe-move-'))
+    const book1 = scaffoldSeries(path.join(base, 'Iron Saint'), { seriesTitle: 'Iron Saint', firstBookTitle: 'Origin of Iron', author: 'Ada Writer' })
+    const book2 = addBookToSeries(path.join(base, 'Iron Saint'), 'Iron Falls')
+    upsertBibleEntry(book1, 'characters', 'Mara Voss', { summary: 'The Iron Saint.' }, '', 'merge', 'series')
+    writeScene(book1, 'manuscript/01-chapter-one/01-opening.md', { characters: ['Mara Voss'] }, 'Steel bloomed.')
+    // The AI's memory for book 1, where Claude Code keeps it on this device
+    const claudeHome = path.join(base, 'claude-home')
+    const mem = path.join(claudeHome, 'projects', claudeProjectKey(book1), 'memory')
+    fs.mkdirSync(mem, { recursive: true })
+    fs.writeFileSync(path.join(mem, 'MEMORY.md'), '- [Voice](voice.md) — keep it punchy\n')
+    fs.writeFileSync(path.join(mem, 'voice.md'), '---\nname: voice\n---\nShort sentences in fights.\n')
+    const userData = path.join(base, 'userdata')
+    fs.mkdirSync(userData)
+    fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify({ lastSeenVersion: SEEN_VERSION, recent: [book1, book2], lastProject: book1, theme: 'dark' }))
+    const env = { ...process.env, NOVEL_CODER_USER_DATA: userData, CLAUDE_CONFIG_DIR: claudeHome } as Record<string, string>
+    delete env.ELECTRON_RUN_AS_NODE
+    const app = await electron.launch({ args: [path.resolve('out/main/index.js')], env })
+    try {
+      const page = await app.firstWindow()
+      await page.setViewportSize({ width: 1500, height: 920 })
+      await page.waitForSelector('footer', { timeout: 30000 })
+      page.setDefaultTimeout(8000)
+      const title = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())
+
+      await page.click('button[title="Series"]')
+      await page.click('button:has-text("Bring this series into a universe")')
+      await page.fill('input[placeholder="The Vanguard Universe"]', 'The Vanguard Universe')
+      await page.screenshot({ path: path.join(shots, '25-bring-into-universe.png') })
+      await page.click('button:has-text("Create universe")')
+      await expect.poll(title).toContain('Origin of Iron · Iron Saint · The Vanguard Universe')
+
+      const u = path.join(base, 'The Vanguard Universe')
+      const moved1 = path.join(u, 'Iron Saint', path.basename(book1))
+      expect(fs.existsSync(path.join(base, 'Iron Saint'))).toBe(false)
+      expect(fs.existsSync(path.join(moved1, 'manuscript', '01-chapter-one', '01-opening.md'))).toBe(true)
+      // The memory was saved into the book before the move and loaded for its new folder
+      await expect.poll(() => fs.existsSync(path.join(claudeHome, 'projects', claudeProjectKey(moved1), 'memory', 'voice.md'))).toBe(true)
+      expect(fs.readFileSync(path.join(moved1, '.novel', 'ai', 'memory', 'voice.md'), 'utf8')).toContain('Short sentences in fights.')
+      // Recent books follow the move
+      const recent = JSON.parse(fs.readFileSync(path.join(userData, 'settings.json'), 'utf8')).recent as string[]
+      expect(recent).toContain(moved1)
+      expect(recent).toContain(path.join(u, 'Iron Saint', path.basename(book2)))
+
+      // Move Mara up into the universe bible, then look at the overview
+      upsertBibleEntry(moved1, 'characters', 'Mara Voss', { summary: 'The Iron Saint.' }, '', 'merge', 'universe')
+      await page.click('button[title="Universe"]')
+      await page.click('button:has-text("Universe overview")')
+      const ov = page.getByTestId('universe-overview')
+      await ov.getByText('Reading order', { exact: true }).waitFor()
+      await ov.getByRole('button', { name: 'Mara Voss' }).waitFor()
+      // Reorder: Iron Falls first
+      await ov.locator('button[aria-label="Move Iron Falls earlier"]').click()
+      await expect
+        .poll(() => JSON.parse(fs.readFileSync(path.join(u, 'universe.json'), 'utf8')).readingOrder)
+        .toEqual([`Iron Saint/${path.basename(book2)}`, `Iron Saint/${path.basename(book1)}`])
+      await page.screenshot({ path: path.join(shots, '26-universe-overview.png') })
     } finally {
       await app.close()
     }

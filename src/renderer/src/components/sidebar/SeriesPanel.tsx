@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, Plus, Sparkles, FileText, Library, Check, Settings2 } from 'lucide-react'
+import { BookOpen, Plus, Sparkles, FileText, Library, Check, Settings2, Orbit } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useStore } from '../../store'
 import { InlineInput } from './Sidebar'
@@ -27,6 +27,10 @@ export function SeriesPanel({ embedded = false }: { embedded?: boolean }) {
         <p className="mb-3">This novel is a standalone book. Turn it into Book 1 of a series to share a story bible across several books.</p>
         <button className="btn w-full justify-center" onClick={() => set({ dialog: 'make-series' })}>
           <Library size={13} /> Turn into a series
+        </button>
+        <p className="mb-3 mt-5">Or make it part of a shared universe, where several series and standalone books share one world.</p>
+        <button className="btn w-full justify-center" onClick={() => set({ dialog: 'make-universe' })}>
+          <Orbit size={13} /> Bring into a universe
         </button>
       </div>
     )
@@ -145,6 +149,13 @@ export function SeriesPanel({ embedded = false }: { embedded?: boolean }) {
           <Sparkles size={13} /> Series continuity check
         </button>
       </div>
+      {!embedded && (
+        <div className="mt-3 border-t border-line px-2 pt-3">
+          <button className="action-row" onClick={() => set({ dialog: 'make-universe' })}>
+            <Orbit size={13} /> Bring this series into a universe
+          </button>
+        </div>
+      )}
     </div>
   )
 }

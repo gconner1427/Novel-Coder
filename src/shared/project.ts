@@ -460,6 +460,194 @@ export function convertToSeries(bookRoot: string, seriesTitle: string, plannedBo
   return dest
 }
 
+// ---------------- bringing existing work into a universe ----------------
+
+/** What moves when a book joins a universe: its whole series if it has one, else the book itself. */
+export function movingUnit(bookRoot: string): string {
+  return findSeriesRoot(bookRoot) ?? path.resolve(bookRoot)
+}
+
+/** Every book inside the unit that moves with this book (so their AI memory can be saved first). */
+export function booksInUnit(bookRoot: string): string[] {
+  const s = findSeriesRoot(bookRoot)
+  return s ? listBooks(s, undefined, true).map((b) => b.root) : [path.resolve(bookRoot)]
+}
+
+/** Move a folder, copying across drives when a rename can't. */
+function moveFolder(from: string, to: string): void {
+  try {
+    fs.renameSync(from, to)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'EXDEV') throw e
+    fs.cpSync(from, to, { recursive: true })
+    fs.rmSync(from, { recursive: true, force: true })
+  }
+}
+
+/** Move the unit (series or standalone book) into a universe folder. Returns the book's new root. */
+function moveUnitInto(bookRoot: string, universeRoot: string): string {
+  const unit = movingUnit(bookRoot)
+  const dest = freeFolder(universeRoot, path.basename(unit), 'Book')
+  const inside = path.relative(unit, path.resolve(bookRoot))
+  moveFolder(unit, dest)
+  const book = path.join(dest, inside)
+  syncAround(book)
+  return book
+}
+
+/**
+ * Turn a series (with all its books), or a standalone book, into the first part of a new universe.
+ * The universe folder is created next to it and it moves inside. Returns the book's new root.
+ */
+export function convertToUniverse(bookRoot: string, universeTitle: string, description = ''): string {
+  if (findUniverseRoot(bookRoot)) throw new Error('This book is already part of a universe.')
+  const unit = movingUnit(bookRoot)
+  const series = findSeriesRoot(bookRoot)
+  const cfg = series ? loadSeriesConfig(series) : loadConfig(bookRoot)
+  // The universe starts with the categories this book uses, so entries can move up into the universe bible.
+  const categories = listBibleCategories(bookRoot)
+  const dir = freeFolder(path.dirname(unit), universeTitle, 'Universe')
+  scaffoldUniverse(dir, { title: universeTitle, author: cfg.author, genre: cfg.genre, pov: cfg.pov, tense: cfg.tense, description })
+  const book = moveUnitInto(bookRoot, dir)
+  for (const c of categories) {
+    if (!c.scopes.includes('universe')) saveBibleCategory(book, c.slug, 'universe', { name: c.name, noun: c.noun, fields: c.fields, guidance: c.guidance, order: c.order })
+  }
+  return book
+}
+
+/** Move a series (with all its books), or a standalone book, into an existing universe. Returns the book's new root. */
+export function moveIntoUniverse(bookRoot: string, universeRoot: string): string {
+  if (!isUniverseRoot(universeRoot)) throw new Error('That folder is not a universe (it has no universe.json).')
+  if (findUniverseRoot(bookRoot)) throw new Error('This book is already part of a universe.')
+  if (isInside(movingUnit(bookRoot), universeRoot)) throw new Error('A universe cannot be moved inside itself.')
+  return moveUnitInto(bookRoot, universeRoot)
+}
+
+// ---------------- reading order, chronicle and appearances ----------------
+
+export interface OrderedBook {
+  root: string
+  /** Path relative to the universe folder (what the saved reading order stores). */
+  key: string
+  title: string
+  seriesTitle?: string
+  number?: number
+  format: BookFormat
+  crossover?: { event: string; part: number }
+  current: boolean
+}
+
+/** Every book in the universe in the author's reading order. Books not in the saved order follow, series by series. */
+export function universeReadingOrder(universeRoot: string, current?: string): OrderedBook[] {
+  const l = listUniverse(universeRoot, current, true)
+  const all: OrderedBook[] = [
+    ...l.series.flatMap((s) => s.books.map((b) => ({ b, seriesTitle: s.title as string | undefined }))),
+    ...l.standalones.map((b) => ({ b, seriesTitle: undefined as string | undefined }))
+  ].map(({ b, seriesTitle }) => ({
+    root: b.root,
+    key: toPosix(path.relative(universeRoot, b.root)),
+    title: b.title,
+    seriesTitle,
+    number: seriesTitle ? b.number : undefined,
+    format: b.format ?? 'novel',
+    crossover: b.crossover,
+    current: b.current
+  }))
+  const saved = loadUniverseConfig(universeRoot).readingOrder ?? []
+  const rank = (k: string) => {
+    const i = saved.indexOf(k)
+    return i < 0 ? saved.length : i
+  }
+  return all.map((b, i) => ({ b, i })).sort((x, y) => rank(x.b.key) - rank(y.b.key) || x.i - y.i).map((x) => x.b)
+}
+
+export function saveReadingOrder(universeRoot: string, keys: string[]): void {
+  saveUniverseConfig(universeRoot, { ...loadUniverseConfig(universeRoot), readingOrder: keys })
+}
+
+export interface TimelineRow {
+  when: string
+  event: string
+  where: string
+}
+
+/** Rows of the first markdown table in a timeline file (the header and separator rows are skipped). */
+export function parseTimeline(text: string): TimelineRow[] {
+  const rows: string[][] = []
+  for (const line of text.split(/\r?\n/)) {
+    const t = line.trim()
+    if (!t.startsWith('|')) {
+      if (rows.length) break
+      continue
+    }
+    rows.push(t.replace(/^\||\|$/g, '').split('|').map((c) => c.trim()))
+  }
+  return rows
+    .slice(1)
+    .filter((r) => !r.every((c) => /^:?-{2,}:?$/.test(c) || c === ''))
+    .map((r) => ({ when: r[0] ?? '', event: r[1] ?? '', where: r[2] ?? '' }))
+}
+
+export interface UniverseOverview {
+  universe: string
+  books: (OrderedBook & { path: string; words: number })[]
+  chronicle: { source: string; path: string; rows: TimelineRow[] }[]
+  appearances: { entries: { name: string; kind: string; path: string }[]; counts: number[][] }
+}
+
+/**
+ * The universe at a glance: books in reading order, every timeline (universe, then each series and book in
+ * reading order), and how many scenes of each book each universe-bible entry appears in.
+ * Paths are relative to the open book.
+ */
+export function universeOverview(root: string): UniverseOverview | undefined {
+  const u = findUniverseRoot(root)
+  if (!u) return undefined
+  const rel = (abs: string) => toPosix(path.relative(root, abs)) || '.'
+  const order = universeReadingOrder(u, root)
+  const entries = listBible(root, undefined, ['universe'])
+  const matchers = entries.map((e) => {
+    const names = [e.name, ...e.aliases].map((n) => n.trim()).filter((n) => n.length >= 2)
+    return { lower: names.map((n) => n.toLowerCase()), res: names.map((n) => new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')) }
+  })
+  const counts = entries.map(() => order.map(() => 0))
+  const books = order.map((b, bi) => {
+    let words = 0
+    for (const sc of listChapters(b.root).flatMap((c) => c.scenes)) {
+      words += sc.words
+      const listed = [...(sc.characters ?? []), sc.pov ?? '', sc.location ?? ''].map((x) => x.trim().toLowerCase())
+      let body: string | null = null
+      matchers.forEach((m, ei) => {
+        if (m.lower.some((n) => listed.includes(n))) return void counts[ei][bi]++
+        body ??= readScene(b.root, sc.path).body
+        if (m.res.some((re) => re.test(body!))) counts[ei][bi]++
+      })
+    }
+    return { ...b, path: rel(b.root), words }
+  })
+  const chronicle: UniverseOverview['chronicle'] = []
+  const add = (source: string, file: string) => {
+    const rows = parseTimeline(readText(file))
+    if (rows.length) chronicle.push({ source, path: rel(file), rows })
+  }
+  add('Universe', path.join(u, 'bible', 'timeline.md'))
+  const seenSeries = new Set<string>()
+  for (const b of order) {
+    const s = findSeriesRoot(b.root)
+    if (s && !seenSeries.has(s)) {
+      seenSeries.add(s)
+      add(`${loadSeriesConfig(s).title} (series)`, path.join(s, 'bible', 'timeline.md'))
+    }
+    add(b.title, path.join(b.root, 'bible', 'timeline.md'))
+  }
+  return {
+    universe: loadUniverseConfig(u).title,
+    books,
+    chronicle,
+    appearances: { entries: entries.map((e) => ({ name: e.name, kind: e.kind, path: e.path })), counts }
+  }
+}
+
 export const SERIES_MD_TEMPLATE = `# Series instructions
 
 Anything the AI should know about the whole series: the long arc, rules of the world that never
@@ -1224,6 +1412,11 @@ function universeInstructions(root: string, cfg: NovelConfig): string {
     ...l.series.map((s) => `- Series **${s.title}** (${bt}${rel(s.root)}/${bt}): ${s.books.map((b) => `${b.number}. ${b.title}`).join('; ') || 'no books yet'}`),
     l.standalones.length
       ? `- Standalones: ${l.standalones.map((b) => `${b.title}${b.format && b.format !== 'novel' ? ` (${FORMAT_LABEL[b.format]})` : ''} (${bt}${rel(b.root)}/${bt})`).join('; ')}`
+      : '',
+    uc.readingOrder?.length
+      ? `- Reading order (as the author wants readers to read them): ${universeReadingOrder(u, root)
+          .map((b, i) => `${i + 1}. ${b.title}${b.seriesTitle ? ` (${b.seriesTitle} ${b.number})` : ''}${b.current ? ' (this book)' : ''}`)
+          .join('; ')}`
       : '',
     `- Shared universe files: ${bt}${pre}/universe-outline.md${bt} (how everything connects), ${bt}${pre}/UNIVERSE.md${bt} (universe instructions),`,
     `  ${bt}${pre}/bible/${bt} (the **universe bible**: characters, places, groups and rules shared across every series and standalone, plus ${bt}${pre}/bible/timeline.md${bt} and ${bt}${pre}/bible/style-guide.md${bt}).`,

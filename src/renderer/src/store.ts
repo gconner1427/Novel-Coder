@@ -18,8 +18,8 @@ import { compatibleCodexEffort } from '@shared/codexModels'
 import { api, uid, type AppSettings, type ScaffoldOptions } from './lib/api'
 
 export type SidebarTab = 'series' | 'manuscript' | 'bible' | 'outline' | 'files' | 'history' | 'snapshots' | 'reports'
-export type Tab = { kind: 'file'; path: string } | { kind: 'read'; chapter?: string } | { kind: 'progress' } | { kind: 'corkboard' } | { kind: 'settings' } | { kind: 'welcome' }
-export type Dialog = null | 'new' | 'convert' | 'export' | 'settings' | 'help' | 'make-series' | 'whats-new'
+export type Tab = { kind: 'file'; path: string } | { kind: 'read'; chapter?: string } | { kind: 'progress' } | { kind: 'corkboard' } | { kind: 'settings' } | { kind: 'welcome' } | { kind: 'universe' }
+export type Dialog = null | 'new' | 'convert' | 'export' | 'settings' | 'help' | 'make-series' | 'make-universe' | 'whats-new'
 
 export const tabKey = (t: Tab) => (t.kind === 'file' ? `file:${t.path}` : t.kind === 'read' ? `read:${t.chapter ?? '*'}` : t.kind)
 
@@ -84,6 +84,8 @@ interface State {
   addSeries: (seriesTitle: string, firstBookTitle: string) => Promise<void>
   addStandalone: (title: string, format?: BookFormat) => Promise<void>
   makeSeries: (title: string, plannedBooks: number) => Promise<void>
+  /** Bring this book's series (or this standalone) into a new universe, or into an existing universe folder. */
+  joinUniverse: (to: { title: string; description?: string } | { dir: string }) => Promise<void>
   refreshSessions: () => Promise<void>
   newChat: () => Promise<void>
   resumeChat: (id: string) => Promise<void>
@@ -368,6 +370,14 @@ export const useStore = create<State>((set, get) => ({
     await get().loadProject(await api.series.convert(title, plannedBooks))
     set({ sidebar: 'series', dialog: null })
     get().notify(`"${title}" created. This book is now Book 1.`)
+  },
+
+  joinUniverse: async (to) => {
+    if (get().busy) await get().interrupt()
+    const p = 'dir' in to ? await api.universe.moveInto(to.dir) : await api.universe.convert(to.title, to.description)
+    await get().loadProject(p)
+    set({ sidebar: 'series', dialog: null })
+    get().notify(`${p.series ? `"${p.series.config.title}"` : `"${p.config.title}"`} is now part of ${p.universe?.config.title ?? 'the universe'}.`)
   },
 
   newChat: async () => {

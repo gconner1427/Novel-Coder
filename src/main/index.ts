@@ -43,6 +43,12 @@ import {
   scaffoldUniverse,
   addSeriesToUniverse,
   addStandaloneToUniverse,
+  convertToUniverse,
+  moveIntoUniverse,
+  movingUnit,
+  booksInUnit,
+  universeOverview,
+  saveReadingOrder,
   saveBibleCategory,
   deleteBibleCategory,
   type CategoryOptions,
@@ -325,17 +331,49 @@ function registerIpc() {
     saveSeriesConfig(sr, cfg)
     projectChanged()
   })
-  handle('series:convert', async (seriesTitle: string, plannedBooks: number) => {
+  /**
+   * Move the open book (and whatever moves with it) to a new place. Each moving book's AI memory and
+   * chats are saved into its folder first; opening the book at its new path loads them back.
+   */
+  const relocate = async (label: string, unit: string, books: string[], move: () => string) => {
     const r = requireRoot()
-    await createSnapshot(r, 'Before turning into a series').catch(() => null)
+    await createSnapshot(r, label).catch(() => null)
     engine?.close()
     engine = null
     await watcher?.close()
     watcher = null
-    const dest = convertToSeries(r, seriesTitle, plannedBooks)
+    for (const b of books) runSync(b, 'save')
+    const dest = move()
+    // Books in the recent list follow the move (unit is the folder that moved: the book or its series).
+    const unitOld = path.resolve(unit)
+    const unitNew = path.resolve(dest, path.relative(path.resolve(r), unitOld))
     const st = getSettings()
-    setSettings({ recent: st.recent.filter((x) => path.resolve(x) !== path.resolve(r)) })
+    setSettings({
+      recent: st.recent.map((x) => (isInside(unitOld, x) ? path.join(unitNew, path.relative(unitOld, x)) : x)),
+      lastProject: dest
+    })
+    root = null
     return openProject(dest)
+  }
+  handle('series:convert', (seriesTitle: string, plannedBooks: number) =>
+    relocate('Before turning into a series', requireRoot(), [requireRoot()], () => convertToSeries(requireRoot(), seriesTitle, plannedBooks))
+  )
+  handle('universe:convert', (universeTitle: string, description?: string) => {
+    const r = requireRoot()
+    if (findUniverseRoot(r)) throw new Error('This book is already part of a universe.')
+    return relocate('Before turning into a universe', movingUnit(r), booksInUnit(r), () => convertToUniverse(r, universeTitle, description))
+  })
+  handle('universe:moveInto', (universeDir: string) => {
+    const r = requireRoot()
+    if (!isUniverseRoot(universeDir)) throw new Error('That folder is not a universe. Pick the folder that holds universe.json.')
+    if (findUniverseRoot(r)) throw new Error('This book is already part of a universe.')
+    return relocate('Before moving into a universe', movingUnit(r), booksInUnit(r), () => moveIntoUniverse(r, universeDir))
+  })
+  handle('universe:overview', () => universeOverview(requireRoot()))
+  handle('universe:setReadingOrder', (keys: string[]) => {
+    const u = findUniverseRoot(requireRoot())
+    if (!u) throw new Error('This book is not part of a universe.')
+    saveReadingOrder(u, keys)
   })
 
   // brainstorms (chat before a project exists)

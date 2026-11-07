@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { BookOpen, Check, ChevronRight, FileText, Library, Orbit, Plus, Settings2, Sparkles, Swords } from 'lucide-react'
+import { BookOpen, Check, ChevronRight, FileText, LayoutDashboard, Library, Orbit, Plus, Settings2, Sparkles, Swords } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useStore } from '../../store'
 import { InlineInput } from './Sidebar'
@@ -18,6 +18,7 @@ export function UniversePanel() {
   const openTab = useStore((s) => s.openTab)
   const sendToEngine = useStore((s) => s.sendToEngine)
   const notify = useStore((s) => s.notify)
+  const set = useStore((s) => s.set)
   const light = project.universe!
 
   // The project snapshot skips word counts across the universe; load them while this panel is open.
@@ -97,6 +98,12 @@ export function UniversePanel() {
           </button>
         </div>
       )}
+
+      <div className="px-2">
+        <button className="action-row" onClick={() => openTab({ kind: 'universe' })}>
+          <LayoutDashboard size={13} /> Universe overview
+        </button>
+      </div>
 
       <Label>Series</Label>
       {u.series.length === 0 && <p className="px-3 pb-1 text-[12px] text-faint">No series yet.</p>}
@@ -235,10 +242,16 @@ export function UniversePanel() {
         </button>
       </div>
 
-      {project.series && (
+      {project.series ? (
         <div className="mt-4 border-t border-line pt-3">
           <Label>This series</Label>
           <SeriesPanel embedded />
+        </div>
+      ) : (
+        <div className="mt-3 border-t border-line px-2 pt-3">
+          <button className="action-row" onClick={() => set({ dialog: 'make-series' })}>
+            <Library size={13} /> Turn this book into a series
+          </button>
         </div>
       )}
     </div>

@@ -39,6 +39,8 @@ export interface UniverseConfig {
   description: string
   pov: string
   tense: string
+  /** Books in the order readers should read them: paths relative to the universe folder. Books not listed follow. */
+  readingOrder?: string[]
 }
 
 export interface SeriesConfig {

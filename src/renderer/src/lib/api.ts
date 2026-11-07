@@ -41,6 +41,9 @@ export interface AppSettings {
   lastSeenVersion?: string
 }
 
+export type { UniverseOverview } from '@shared/project'
+import type { UniverseOverview } from '@shared/project'
+
 export interface ScaffoldOptions {
   title: string
   author?: string
@@ -144,6 +147,13 @@ export interface NovelApi {
     saveConfig(cfg: UniverseConfig): Promise<void>
     addSeries(seriesTitle: string, firstBookTitle: string, plannedBooks?: number): Promise<ProjectSnapshot>
     addStandalone(title: string, format?: BookFormat): Promise<ProjectSnapshot>
+    /** Turn this book's series (or this standalone) into the first part of a new universe. Opens the book at its new place. */
+    convert(universeTitle: string, description?: string): Promise<ProjectSnapshot>
+    /** Move this book's series (or this standalone) into an existing universe folder. */
+    moveInto(universeDir: string): Promise<ProjectSnapshot>
+    overview(): Promise<UniverseOverview | undefined>
+    /** Paths relative to the universe folder, in reading order. */
+    setReadingOrder(keys: string[]): Promise<void>
   }
   brainstorm: {
     list(): Promise<BrainstormSummary[]>

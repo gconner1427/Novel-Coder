@@ -58,7 +58,11 @@ const api = {
     load: inv('universe:load'),
     saveConfig: inv('universe:saveConfig'),
     addSeries: inv('universe:addSeries'),
-    addStandalone: inv('universe:addStandalone')
+    addStandalone: inv('universe:addStandalone'),
+    convert: inv('universe:convert'),
+    moveInto: inv('universe:moveInto'),
+    overview: inv('universe:overview'),
+    setReadingOrder: inv('universe:setReadingOrder')
   },
   brainstorm: {
     list: inv('brainstorm:list'),

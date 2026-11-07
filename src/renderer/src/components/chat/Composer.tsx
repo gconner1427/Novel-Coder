@@ -56,7 +56,7 @@ export function Composer() {
       return commands
         .filter((c) => c.name.startsWith(slashQuery))
         .filter((c) => !brainstorm || BRAINSTORM_OK.has(c.name))
-        .filter((c) => (c.name === 'add-book' ? !!project?.series : c.name === 'make-series' ? !!project && !project.series : true))
+        .filter((c) => (c.name === 'add-book' ? !!project?.series : c.name === 'make-series' ? !!project && !project.series : c.name === 'make-universe' ? !!project && !project.universe : true))
         .slice(0, 12)
         .map((c) => ({ key: c.name, label: `/${c.name}`, hint: `${c.args ? c.args + ' · ' : ''}${c.description}`, tag: c.source === 'project' ? 'custom' : c.kind === 'local' ? 'app' : '' }))
     if (atQuery !== undefined && !project) {
@@ -133,6 +133,10 @@ export function Composer() {
         if (!s.project?.series) return s.pushNotice('This book is not part of a series. Use /make-series first.')
         if (!args) return s.pushNotice('Usage: /add-book <title>')
         return s.addBook(args)
+      case 'make-universe':
+        if (!s.project) return
+        if (s.project.universe) return s.pushNotice('This book is already part of a universe.')
+        return s.set({ dialog: 'make-universe' })
       case 'make-series':
         if (!s.project) return
         if (s.project.series) return s.pushNotice('This book is already part of a series.')

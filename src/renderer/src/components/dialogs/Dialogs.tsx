@@ -16,6 +16,7 @@ export function Dialogs() {
   if (dialog === 'new') return <NewNovelDialog onClose={close} />
   if (dialog === 'convert') return <NewNovelDialog onClose={close} convert />
   if (dialog === 'make-series') return <MakeSeriesDialog onClose={close} />
+  if (dialog === 'make-universe') return <MakeUniverseDialog onClose={close} />
   if (dialog === 'export') return <ExportDialog onClose={close} />
   if (dialog === 'settings') return <SettingsDialog onClose={close} />
   if (dialog === 'help') return <HelpDialog onClose={close} />
@@ -330,6 +331,96 @@ function MakeSeriesDialog({ onClose }: { onClose: () => void }) {
           <input type="number" min={2} max={20} className="field w-full" value={n} onChange={(e) => setN(Number(e.target.value))} />
         </L>
       </div>
+    </Modal>
+  )
+}
+
+/** Bring this book's series (or this standalone book) into a new universe, or into one that already exists. */
+function MakeUniverseDialog({ onClose }: { onClose: () => void }) {
+  const project = useStore((s) => s.project)!
+  const joinUniverse = useStore((s) => s.joinUniverse)
+  const notify = useStore((s) => s.notify)
+  const [mode, setMode] = useState<'new' | 'existing'>('new')
+  const [title, setTitle] = useState('')
+  const [premise, setPremise] = useState('')
+  const [dir, setDir] = useState('')
+  const [busy, setBusy] = useState(false)
+  const what = project.series ? (
+    <>
+      the series <b>{project.series.config.title}</b>, with all {project.series.books.length} of its {project.series.books.length === 1 ? 'book' : 'books'},
+    </>
+  ) : (
+    <>
+      <b>{project.config.title}</b>
+    </>
+  )
+  const valid = mode === 'new' ? !!title.trim() : !!dir
+  return (
+    <Modal
+      title="Bring into a universe"
+      onClose={onClose}
+      width={560}
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="btn btn-primary"
+            disabled={!valid || busy}
+            onClick={async () => {
+              setBusy(true)
+              try {
+                await joinUniverse(mode === 'new' ? { title: title.trim(), description: premise.trim() } : { dir })
+              } catch (e) {
+                notify((e as Error).message, 'error')
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            {busy ? 'Moving…' : mode === 'new' ? 'Create universe' : 'Move into universe'}
+          </button>
+        </>
+      }
+    >
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        <KindButton on={mode === 'new'} onClick={() => setMode('new')} icon={<Orbit size={16} />} label="A new universe" hint="Start one around this" />
+        <KindButton on={mode === 'existing'} onClick={() => setMode('existing')} icon={<FolderOpen size={16} />} label="An existing universe" hint="Join one you already have" />
+      </div>
+      <p className="mb-3 text-[12.5px] leading-relaxed text-muted">
+        {mode === 'new' ? (
+          <>A new universe folder is created next to {what} and it moves inside. The universe bible starts with the same categories, so characters can move up into it.</>
+        ) : (
+          <>{what} moves into the universe folder you pick, alongside its other series and standalones.</>
+        )}{' '}
+        Nothing in the books changes, and the AI's memory and chats come along. A snapshot is taken first; the Snapshots list then starts again for the whole universe.
+      </p>
+      {mode === 'new' ? (
+        <div className="space-y-3">
+          <L label="Universe title">
+            <input autoFocus className="field w-full" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="The Vanguard Universe" />
+          </L>
+          <L label="Universe premise (optional)">
+            <textarea rows={3} className="field w-full resize-none" value={premise} onChange={(e) => setPremise(e.target.value)} />
+          </L>
+        </div>
+      ) : (
+        <L label="Universe folder">
+          <div className="flex gap-2">
+            <input className="field min-w-0 flex-1" value={dir} readOnly placeholder="The folder that holds universe.json" />
+            <button
+              className="btn"
+              onClick={async () => {
+                const d = await api.app.pickFolder('Pick the universe folder')
+                if (d) setDir(d)
+              }}
+            >
+              <FolderOpen size={14} /> Browse
+            </button>
+          </div>
+        </L>
+      )}
     </Modal>
   )
 }

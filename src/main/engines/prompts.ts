@@ -237,7 +237,8 @@ export const BUILTIN_COMMANDS: Record<string, CommandDef> = {
   new: { description: 'Create a new novel, series or universe', local: true },
   'new-brainstorm': { description: 'Start a brainstorm chat (no project needed)', local: true },
   'add-book': { description: 'Add a new book to this series', args: '<title>', local: true },
-  'make-series': { description: 'Turn this novel into book 1 of a series', args: '<series title>', local: true }
+  'make-series': { description: 'Turn this novel into book 1 of a series', args: '<series title>', local: true },
+  'make-universe': { description: 'Bring this series or book into a new or existing universe', local: true }
 }
 
 export function expandPrompt(template: string, args: string): string {
