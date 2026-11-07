@@ -55,6 +55,9 @@ export function mcpServerSpec(root: string): { command: string; args: string[]; 
 export const SAFE_NOVEL_TOOLS = [
   'project_overview',
   'series_overview',
+  'universe_overview',
+  'bible_categories',
+  'bible_appearances',
   'scene_list',
   'scene_read',
   'bible_list',

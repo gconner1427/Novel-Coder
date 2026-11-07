@@ -17,6 +17,28 @@ export interface NovelConfig {
   models: { claude: string; codex: string }
   /** Position in a series (only for books that live inside a series folder). */
   seriesNumber?: number
+  /** Novel (default), novella or short story. */
+  format?: BookFormat
+  /** For a book that is one part of a crossover event told across several series or standalones in a universe. */
+  crossover?: CrossoverRef
+}
+
+export type BookFormat = 'novel' | 'novella' | 'short-story'
+
+export interface CrossoverRef {
+  /** The event's name; books with the same name (ignoring case) are parts of the same crossover. */
+  event: string
+  part: number
+}
+
+/** A shared universe: a folder holding several series and standalone books, with a universe-wide bible. */
+export interface UniverseConfig {
+  title: string
+  author: string
+  genre: string
+  description: string
+  pov: string
+  tense: string
 }
 
 export interface SeriesConfig {
@@ -38,6 +60,8 @@ export interface BookInfo {
   targetWords: number
   current: boolean
   premise?: string
+  format?: BookFormat
+  crossover?: CrossoverRef
 }
 
 /** A chapter or the whole manuscript, compiled for reading, keeping track of which scene each passage came from. */
@@ -66,6 +90,8 @@ export interface ShelfBook {
   premise?: string
   seriesTitle?: string
   seriesNumber?: number
+  universeTitle?: string
+  format?: BookFormat
 }
 
 export interface SeriesInfo {
@@ -75,6 +101,46 @@ export interface SeriesInfo {
   totalWords: number
   /** Series-level files, relative to the current book root (prefixed with ../). */
   files: string[]
+}
+
+export interface UniverseSeries {
+  folder: string
+  root: string
+  title: string
+  plannedBooks: number
+  books: BookInfo[]
+  words: number
+  /** The open book belongs to this series. */
+  current: boolean
+}
+
+export interface CrossoverPart {
+  part: number
+  title: string
+  root: string
+  /** Path of the book relative to the open book. */
+  path: string
+  seriesTitle?: string
+  current: boolean
+}
+
+export interface CrossoverInfo {
+  event: string
+  parts: CrossoverPart[]
+}
+
+export interface UniverseInfo {
+  root: string
+  config: UniverseConfig
+  series: UniverseSeries[]
+  /** Books that live directly in the universe, outside any series. */
+  standalones: BookInfo[]
+  crossovers: CrossoverInfo[]
+  totalWords: number
+  /** Universe-level files, relative to the current book root. Word counts are 0 in a project snapshot (it skips them for speed). */
+  files: string[]
+  /** Path from the open book to the universe folder, e.g. ".." or "../.." */
+  prefix: string
 }
 
 export interface BrainstormSummary {
@@ -121,7 +187,27 @@ export interface ChapterInfo {
   words: number
 }
 
-export type BibleKind = 'characters' | 'locations' | 'lore'
+/** A story bible category: the folder name under bible/ (e.g. "characters", "powers"). Authors create their own. */
+export type BibleKind = string
+
+/** Which bible an entry lives in. The closest layer wins: book, then series, then universe. */
+export type BibleScope = 'book' | 'series' | 'universe'
+
+export interface BibleCategory {
+  slug: string
+  name: string
+  /** Singular name for one entry, e.g. "character". */
+  noun: string
+  /** Fields every new entry in this category starts with. */
+  fields: string[]
+  /** What the author wants recorded in this category (also shown to the AI). */
+  guidance: string
+  order?: number
+  /** The bible layers that have this category's folder, closest first. */
+  scopes: BibleScope[]
+  /** The category's folder in the closest of those layers, relative to the book (e.g. "../bible/powers"). Its settings live in _category.md there. */
+  path: string
+}
 
 export interface BibleEntry {
   kind: BibleKind
@@ -132,8 +218,8 @@ export interface BibleEntry {
   summary: string
   fields: Record<string, unknown>
   body: string
-  /** 'series' entries live in the series folder and are shared by every book. */
-  scope: 'book' | 'series'
+  /** 'series' entries live in the series folder and are shared by every book; 'universe' entries by every book in the universe. */
+  scope: BibleScope
 }
 
 export interface ProjectSnapshot {
@@ -141,9 +227,11 @@ export interface ProjectSnapshot {
   config: NovelConfig
   chapters: ChapterInfo[]
   bible: BibleEntry[]
+  bibleCategories: BibleCategory[]
   totalWords: number
   files: string[] // all non-hidden files, relative
   series?: SeriesInfo
+  universe?: UniverseInfo
 }
 
 export interface DailyStat {

@@ -172,9 +172,22 @@ export function docTitle(project: ProjectSnapshot | null, p: string): string {
   if (sc) return sc.title
   const be = project?.bible.find((b) => b.path === p)
   if (be) return be.name
-  if (p === '../series-outline.md') return 'Series outline'
-  if (p === '../SERIES.md') return 'Series instructions'
-  if (p.startsWith('../bible/')) return `Series ${p.split('/').pop()!.replace(/\.md$/, '').replace('-', ' ')}`
+  const cat = project?.bibleCategories?.find((c) => p === `${c.path}/_category.md`)
+  if (cat) return `${cat.name} settings`
+  const shared = (prefix: string) => (p.startsWith(`${prefix}/bible/`) ? p.split('/').pop()!.replace(/\.md$/, '').replace('-', ' ') : null)
+  const u = project?.universe?.prefix
+  if (u) {
+    if (p === `${u}/universe-outline.md`) return 'Universe outline'
+    if (p === `${u}/UNIVERSE.md`) return 'Universe instructions'
+    const f = shared(u)
+    if (f) return `Universe ${f}`
+  }
+  if (!project || project.series) {
+    if (p === '../series-outline.md') return 'Series outline'
+    if (p === '../SERIES.md') return 'Series instructions'
+    const f = shared('..')
+    if (f) return `Series ${f}`
+  }
   // "02-the-ladder.md" → "The ladder"
   const name = p.split('/').pop()!.replace(/\.md$/, '').replace(/^\d+[-_ ]+/, '').replace(/[-_]+/g, ' ').trim()
   return name ? name[0].toUpperCase() + name.slice(1) : p

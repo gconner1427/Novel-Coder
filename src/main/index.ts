@@ -31,11 +31,19 @@ import {
   listBooks,
   loadSeriesConfig,
   saveSeriesConfig,
+  containerRoot,
+  findUniverseRoot,
+  isInside,
+  loadUniverseConfig,
+  universeBookRoots,
+  saveBibleCategory,
+  deleteBibleCategory,
+  type CategoryOptions,
   type ScaffoldOptions,
   type SeriesScaffoldOptions
 } from '@shared/project'
 import { createSnapshot, listSnapshots, restoreSnapshot } from '@shared/snapshots'
-import type { BibleKind, EngineId, SeriesConfig, EngineEvent, EngineSettings, ExportFormat, NovelConfig, PermissionMode, PermissionResponse, SceneMeta, SendOptions, SessionRecord } from '@shared/types'
+import type { BibleKind, BibleScope, EngineId, SeriesConfig, EngineEvent, EngineSettings, ExportFormat, NovelConfig, PermissionMode, PermissionResponse, SceneMeta, SendOptions, SessionRecord } from '@shared/types'
 import type { Engine } from './engines/engine'
 import { ClaudeEngine } from './engines/claudeEngine'
 import { CodexEngine } from './engines/codexEngine'
@@ -145,6 +153,23 @@ function projectChanged() {
   }, 250)
 }
 
+const SHARED_INSTRUCTION_FILES = new Set(['novel.json', 'series.json', 'SERIES.md', 'universe.json', 'UNIVERSE.md', '_category.md'])
+
+/** Every book in the open book's universe, else its series, else just the book. */
+function booksAround(dir: string): string[] {
+  const u = findUniverseRoot(dir)
+  if (u) return universeBookRoots(u)
+  const s = findSeriesRoot(dir)
+  return s ? listBooks(s, undefined, true).map((b) => b.root) : [dir]
+}
+
+function windowTitle(dir: string): string {
+  const s = findSeriesRoot(dir)
+  const u = findUniverseRoot(dir)
+  const around = [s && loadSeriesConfig(s).title, u && loadUniverseConfig(u).title].filter(Boolean)
+  return `${loadConfig(dir).title}${around.map((t) => ` · ${t}`).join('')} | Novel Coder`
+}
+
 async function openProject(dir: string) {
   if (!isNovelProject(dir)) throw new Error('That folder is not a Novel Coder project (no novel.json). Use "New Novel" instead.')
   engine?.close()
@@ -156,22 +181,22 @@ async function openProject(dir: string) {
   syncAgentInstructions(dir)
   // Bring in memory and chats saved on other devices before any chat resumes.
   runSync(dir, 'both')
-  const seriesRoot = findSeriesRoot(dir)
-  watcher = watch(seriesRoot ?? dir, {
+  watcher = watch(containerRoot(dir), {
     ignoreInitial: true,
     ignored: ignoredByWatcher,
     awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 }
   })
   watcher.on('all', (_ev, file) => {
     const base = path.basename(file)
-    if (base === 'NOVEL.md' || base === 'novel.json') syncAgentInstructions(path.dirname(file))
-    if (seriesRoot && (base === 'SERIES.md' || base === 'series.json') && path.dirname(file) === seriesRoot)
-      for (const b of listBooks(seriesRoot)) syncAgentInstructions(b.root)
+    // NOVEL.md only goes into its own book's instructions. The shared files show up in every
+    // book's: book lists, crossover parts, series/universe instructions and bible categories.
+    if (base === 'NOVEL.md') syncAgentInstructions(path.dirname(file))
+    else if (SHARED_INSTRUCTION_FILES.has(base)) for (const b of booksAround(dir)) syncAgentInstructions(b)
     projectChanged()
   })
   const s = getSettings()
   setSettings({ lastProject: dir, recent: [dir, ...s.recent.filter((r) => r !== dir)].slice(0, 12) })
-  win?.setTitle(`${loadConfig(dir).title}${seriesRoot ? ` · ${loadSeriesConfig(seriesRoot).title}` : ''} | Novel Coder`)
+  win?.setTitle(windowTitle(dir))
   const snap = loadProject(dir)
   recordWords(dir, snap.totalWords)
   if ((await listSnapshots(dir, 1)).length === 0) await createSnapshot(dir, 'Project opened').catch(() => null)
@@ -241,8 +266,10 @@ function registerIpc() {
     return openProject(addBookToSeries(sr, title))
   })
   handle('series:openBook', (bookRoot: string) => {
-    const sr = findSeriesRoot(requireRoot())
-    if (!sr || path.dirname(path.resolve(bookRoot)) !== sr) throw new Error('Not a book of this series')
+    // Any other book in the same series or universe.
+    const r = requireRoot()
+    if (containerRoot(r) === path.resolve(r) || !isInside(containerRoot(r), bookRoot) || !isNovelProject(bookRoot))
+      throw new Error('Not a book of this series or universe')
     return openProject(bookRoot)
   })
   handle('series:saveConfig', (cfg: SeriesConfig) => {
@@ -358,12 +385,22 @@ function registerIpc() {
     return dest
   })
   handle('project:saveConfig', (cfg: NovelConfig) => {
-    saveConfig(requireRoot(), cfg)
-    win?.setTitle(`${cfg.title} | Novel Coder`)
+    const r = requireRoot()
+    saveConfig(r, cfg)
+    win?.setTitle(windowTitle(r))
   })
-  handle('bible:upsert', (kind: BibleKind, name: string, fields: Record<string, unknown>, body: string, scope?: 'book' | 'series') =>
+  handle('bible:upsert', (kind: BibleKind, name: string, fields: Record<string, unknown>, body: string, scope?: BibleScope) =>
     upsertBibleEntry(requireRoot(), kind, name, fields, body, 'replace', scope)
   )
+  handle('bible:saveCategory', (slugOrName: string, scope: BibleScope, opts: CategoryOptions) => {
+    const c = saveBibleCategory(requireRoot(), slugOrName, scope, opts)
+    projectChanged()
+    return c
+  })
+  handle('bible:deleteCategory', (slug: string, scope?: BibleScope) => {
+    deleteBibleCategory(requireRoot(), slug, scope)
+    projectChanged()
+  })
 
   // stats, snapshots, reports, export
   handle('stats:get', () => {
@@ -417,14 +454,15 @@ function registerIpc() {
       send('engine:event', { engine: settings.engine, ev })
       if (ev.type === 'done' && root) scheduleSave()
     }
-    const seriesRoot = root ? findSeriesRoot(root) : null
+    // A book in a series or universe may read and write the shared files and the other books around it.
+    const around = root ? containerRoot(root) : null
     const opts = {
       root: cwd,
       settings,
       resumeSessionId,
       emit,
       mode: (root ? 'novel' : 'brainstorm') as 'novel' | 'brainstorm',
-      extraDirs: seriesRoot ? [seriesRoot] : undefined
+      extraDirs: around && root && around !== path.resolve(root) ? [around] : undefined
     }
     try {
       engine = settings.engine === 'claude' ? new ClaudeEngine(opts) : new CodexEngine(opts)

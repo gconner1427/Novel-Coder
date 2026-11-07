@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.4.0',
+    summary: 'Build your story bible your way, with categories you design.',
+    items: [
+      {
+        title: 'Story bible categories you design',
+        body:
+          "The story bible is no longer limited to Characters, Locations and Lore & World. Click New category at the bottom of the Story Bible to add your own, like Powers & Abilities, Teams, Factions or Technology. Click the pencil beside a category to rename it, set the fields every new entry starts with (for example source, limits and cost for a power), and write guidance on what to record. The AI reads that guidance and files new entries in the category that fits. An empty category can be deleted with its bin button. In a series, a new category can go in the series bible so every book shares it."
+      }
+    ]
+  },
+  {
     version: '0.3.1',
     summary: 'Read your whole book in one place, a tidier story bible, Codex that follows its own settings, and an app that opens the way you left it.',
     items: [

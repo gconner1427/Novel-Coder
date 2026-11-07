@@ -1,17 +1,17 @@
 // Checkpoints for a novel project using a hidden isomorphic-git repo in .novel/history.
-// No system Git required. Used for "rewind" after AI edits. For a book inside a series the
-// checkpoint covers the whole series folder (shared bible + every book).
+// No system Git required. Used for "rewind" after AI edits. For a book inside a series or universe the
+// checkpoint covers the whole series or universe folder (shared bibles + every book).
 import fs from 'node:fs'
 import path from 'node:path'
 import git from 'isomorphic-git'
 import type { Snapshot } from './types'
-import { findSeriesRoot, toPosix } from './project'
+import { containerRoot, toPosix } from './project'
 
 const IGNORED_SEGMENTS = new Set(['.novel', 'exports', 'node_modules', '.git'])
 
-/** The folder a book's snapshots cover: the series root if it has one, else the book itself. */
+/** The folder a book's snapshots cover: its universe, else its series, else the book itself. */
 export function snapshotBase(root: string): string {
-  return findSeriesRoot(root) ?? path.resolve(root)
+  return containerRoot(root)
 }
 
 function opts(base: string) {

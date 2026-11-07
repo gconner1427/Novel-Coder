@@ -1,6 +1,8 @@
 import type {
   AuthStatus,
+  BibleCategory,
   BibleEntry,
+  BibleScope,
   BibleKind,
   BrainstormSummary,
   IdeaFields,
@@ -116,7 +118,12 @@ export interface NovelApi {
     saveConfig(cfg: NovelConfig): Promise<void>
     onChanged(cb: (p: ProjectSnapshot) => void): () => void
   }
-  bible: { upsert(kind: BibleKind, name: string, fields: Record<string, unknown>, body: string, scope?: 'book' | 'series'): Promise<BibleEntry> }
+  bible: {
+    upsert(kind: BibleKind, name: string, fields: Record<string, unknown>, body: string, scope?: BibleScope): Promise<BibleEntry>
+    saveCategory(slugOrName: string, scope: BibleScope, opts: { name?: string; noun?: string; fields?: string[]; guidance?: string; order?: number }): Promise<BibleCategory>
+    /** Without a scope, removes the category from every bible that has it (only while they are all empty). */
+    deleteCategory(slug: string, scope?: BibleScope): Promise<void>
+  }
   series: {
     addBook(title: string): Promise<ProjectSnapshot>
     openBook(bookRoot: string): Promise<ProjectSnapshot>

@@ -7,8 +7,11 @@ novel project (see CLAUDE.md / AGENTS.md). Treat prose as the product: draft viv
 emotionally true fiction in the book's established voice, POV and tense.
 
 - Use the \`novel\` MCP tools (project_overview, scene_list, scene_read, scene_write, bible_search,
-  bible_get, bible_upsert, continuity_context, outline_get, timeline_add, report_write, snapshot_create)
-  in preference to raw file edits when they fit. Plain file tools are fine for everything else.
+  bible_get, bible_upsert, bible_categories, bible_appearances, continuity_context, outline_get,
+  timeline_add, report_write, snapshot_create, and series_overview / universe_overview in a series or
+  universe) in preference to raw file edits when they fit. Plain file tools are fine for everything else.
+- The author designs the story bible's categories. File entries in the category that fits (see
+  bible_categories) and follow each category's guidance; suggest a new category rather than inventing one.
 - Before substantial rewrites call snapshot_create so the author can rewind.
 - Keep the story bible current: new named characters, places and world rules get entries.
 - When giving feedback, be candid and specific; quote the passage and explain the effect on a reader.
@@ -156,17 +159,17 @@ export const BUILTIN_COMMANDS: Record<string, CommandDef> = {
   character: {
     description: 'Create or deepen a character bible entry',
     args: '<name> [notes]',
-    prompt: 'Develop the character: $ARGUMENTS. Check the bible and manuscript for what is already established, then write a rich entry with bible_upsert (role, age, appearance, want, need, flaw, voice, backstory, arc). Do not contradict the manuscript.'
+    prompt: 'Develop the character: $ARGUMENTS. Check the bible, the manuscript and (in a series or universe) bible_appearances for what is already established, then write a rich entry with bible_upsert (role, age, appearance, want, need, flaw, voice, backstory, arc). Do not contradict the manuscript.'
   },
   worldbuild: {
     description: 'Develop a location or piece of lore',
     args: '<topic>',
-    prompt: 'Develop worldbuilding for: $ARGUMENTS. Check existing bible entries first, then write location or lore entries with bible_upsert.'
+    prompt: 'Develop worldbuilding for: $ARGUMENTS. Check bible_categories and the existing entries first, then write entries in the categories that fit with bible_upsert.'
   },
   'bible-sync': {
     description: 'Update the story bible from the manuscript',
     args: '[scene path | chapter | all]',
-    prompt: 'Read $ARGUMENTS (default: all scenes) and update the story bible: add missing characters/places/lore, record new facts, and add events to the timeline. Report what you changed.'
+    prompt: 'Read $ARGUMENTS (default: all scenes) and update the story bible: add missing entries to the categories that fit (see bible_categories), record new facts, and add events to the timeline. Report what you changed.'
   },
   summarize: {
     description: 'Write summaries into scene frontmatter',
@@ -188,7 +191,7 @@ export const BUILTIN_COMMANDS: Record<string, CommandDef> = {
     prompt:
       'This project was just created from a brainstorm. Read notes/brainstorm-ideas.md and notes/brainstorm-conversation.md (and the conversation context you were given). Snapshot first, then set the project up from it:\n' +
       '1. Fill outline/outline.md (premise + acts) with outline_update, and outline/beats.md.\n' +
-      '2. Create bible entries with bible_upsert for every character, location and piece of lore we discussed (for a series, use scope "series" for anything that recurs across books).\n' +
+      '2. Create bible entries with bible_upsert for every character, location and piece of lore we discussed (for a series, use scope "series" for anything that recurs across books; in a universe, scope "universe" for anything shared with other series or standalones).\n' +
       '3. Fill the style guide (bible/style-guide.md, or ../bible/style-guide.md in a series) with the voice we discussed, and add timeline events.\n' +
       '4. If this is a series, write ../series-outline.md: the overarching arc and each planned book\'s core conflict and ending.\n' +
       '5. Create chapter and scene skeletons for Act I with scene_create, each with a one-sentence summary (rename or reuse the placeholder first scene).\n' +
@@ -205,6 +208,18 @@ export const BUILTIN_COMMANDS: Record<string, CommandDef> = {
     args: '[notes]',
     prompt:
       'Plan the next book in this series. $ARGUMENTS\nCall series_overview, read the series outline, the series bible and the scene summaries of the earlier books. Then propose the next book\'s premise, core conflict, character arcs, the threads it picks up and pays off, and a chapter-level outline. Don\'t create files yet; ask the author to click "Add book" in the Series panel when they are happy.'
+  },
+  'universe-plan': {
+    description: 'Develop the universe outline (how every series and standalone connects)',
+    args: '[instructions]',
+    prompt:
+      'Work on the universe plan: $ARGUMENTS. Call universe_overview, read the universe outline, UNIVERSE.md and the universe bible (paths are in universe_overview), then update the universe outline: eras and phases, how each series and standalone connects, which characters cross between them, and the crossover events (which books tell each part, in what order). Note universe-bible entries that should be added.'
+  },
+  crossover: {
+    description: 'Plan or check a crossover event told across several books',
+    args: '<event> [notes]',
+    prompt:
+      'Work on the crossover event: $ARGUMENTS. Call universe_overview to find its parts (books whose crossover has this event name), read each part\'s outline and scene summaries, and the universe bible entries of every character involved (use bible_appearances to see where they last appeared). Then lay out what each part must cover, the hand-off between parts (where each one ends and the next picks up), and any contradictions between parts already written. Don\'t edit the manuscript.'
   },
   // ---- harness (handled locally) ----
   help: { description: 'Show available commands', local: true },

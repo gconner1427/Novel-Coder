@@ -23,6 +23,8 @@ import {
   Pencil,
   ShieldCheck,
   Library,
+  Tag,
+  FolderPlus,
   ChevronsDownUp,
   ChevronsUpDown,
   X
@@ -31,7 +33,7 @@ import { SeriesPanel } from './SeriesPanel'
 import { api } from '../../lib/api'
 import { useStore, type SidebarTab } from '../../store'
 import { Empty, EngineDot, StatusPill, docTitle, timeAgo } from '../ui'
-import type { BibleKind, Snapshot } from '@shared/types'
+import type { BibleScope, Snapshot } from '@shared/types'
 
 const TABS: { id: SidebarTab; icon: ReactNode; label: string }[] = [
   { id: 'series', icon: <Library size={17} />, label: 'Series' },
@@ -312,13 +314,22 @@ function ManuscriptPanel() {
 
 // ---------------- story bible ----------------
 
-const KIND_META: Record<BibleKind, { label: string; noun: string; icon: ReactNode }> = {
-  characters: { label: 'Characters', noun: 'character', icon: <User size={13} /> },
-  locations: { label: 'Locations', noun: 'location', icon: <MapPin size={13} /> },
-  lore: { label: 'Lore & World', noun: 'lore entry', icon: <ScrollText size={13} /> }
+const KIND_ICON: Record<string, ReactNode> = {
+  characters: <User size={13} />,
+  locations: <MapPin size={13} />,
+  lore: <ScrollText size={13} />
 }
+const kindIcon = (slug: string) => KIND_ICON[slug] ?? <Tag size={13} />
 
-type BibleShow = 'all' | 'series' | 'book'
+type BibleShow = 'all' | BibleScope
+
+const SCOPE_LABEL: Record<BibleScope, string> = { book: 'Book', series: 'Series', universe: 'Universe' }
+const SCOPE_HINT: Record<BibleScope, string> = {
+  book: 'Only entries that belong to this book',
+  series: 'Only entries shared by every book in the series',
+  universe: 'Only entries shared by every series and book in the universe'
+}
+const SCOPE_TARGET: Record<BibleScope, string> = { book: 'this book', series: 'the series bible', universe: 'the universe bible' }
 
 /** Remembered per computer: which bible entries to show, and which sections are folded away. */
 const readPref = <T,>(key: string, fallback: T): T => {
@@ -364,20 +375,55 @@ function SectionHeader({
   )
 }
 
+/** "Add to" picker shown under a name field when more than one bible is visible. */
+function ScopePicker({ layers, show, value, onChange, what }: { layers: BibleScope[]; show: BibleShow; value: BibleScope; onChange: (s: BibleScope) => void; what: string }) {
+  if (layers.length < 2) return null
+  return (
+    <div className="mx-2 mb-1 flex flex-wrap items-center gap-1 px-1 text-[11px] text-faint">
+      {show === 'all' ? (
+        <>
+          <span>Add to</span>
+          {[...layers].reverse().map((sc) => (
+            <button
+              key={sc}
+              // Keep the name field focused; it cancels when it loses focus.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onChange(sc)}
+              className={`rounded px-1.5 py-px ${value === sc ? 'bg-raised text-fg' : 'hover:text-fg'}`}
+            >
+              {sc === 'book' ? 'This book' : `${SCOPE_LABEL[sc]} bible`}
+            </button>
+          ))}
+        </>
+      ) : (
+        <span>
+          Adds {what} to {SCOPE_TARGET[show]}.
+        </span>
+      )}
+    </div>
+  )
+}
+
 function BiblePanel() {
   const project = useStore((s) => s.project)!
   const openTab = useStore((s) => s.openTab)
   const sendToEngine = useStore((s) => s.sendToEngine)
+  const notify = useStore((s) => s.notify)
   const activePath = useActivePath()
   const [q, setQ] = useState('')
-  const [adding, setAdding] = useState<BibleKind | null>(null)
-  const inSeries = !!project.series
+  const [adding, setAdding] = useState<string | null>(null)
+  const [addingCategory, setAddingCategory] = useState(false)
+  // The bibles this book can see, closest first.
+  const layers: BibleScope[] = ['book', ...(project.series ? ['series' as const] : []), ...(project.universe ? ['universe' as const] : [])]
+  const layered = layers.length > 1
+  const broadest = layers[layers.length - 1]
   const [showPref, setShowPref] = useState<BibleShow>(() => readPref('novelcoder.bibleShow', 'all'))
-  const show: BibleShow = inSeries ? showPref : 'all'
+  const show: BibleShow = layered && (showPref === 'all' || layers.includes(showPref)) ? showPref : 'all'
   const [folded, setFolded] = useState<Record<string, boolean>>(() => readPref('novelcoder.bibleFolded', {}))
-  // Where a new entry goes. Showing one bible means new entries go there; showing both lets you pick (series by default).
-  const [addScope, setAddScope] = useState<'book' | 'series'>('series')
-  const scope = !inSeries ? 'book' : show === 'all' ? addScope : show
+  // Where a new entry goes. Showing one bible means new entries go there; showing all lets you pick (the broadest by default).
+  const [addScopePref, setAddScope] = useState<BibleScope>(broadest)
+  const addScope = layers.includes(addScopePref) ? addScopePref : broadest
+  const scope: BibleScope = !layered ? 'book' : show === 'all' ? addScope : show
 
   const setShow = (v: BibleShow) => {
     setShowPref(v)
@@ -400,30 +446,38 @@ function BiblePanel() {
       ),
     [project.bible, term, show]
   )
-  const counts = useMemo(
-    () => ({
-      all: project.bible.length,
-      series: project.bible.filter((e) => e.scope === 'series').length,
-      book: project.bible.filter((e) => e.scope !== 'series').length
-    }),
-    [project.bible]
-  )
-  const prefix = project.series?.files[0]?.split('/')[0] ?? '..'
-  const kinds = Object.keys(KIND_META) as BibleKind[]
-  const allFolded = kinds.every((k) => folded[k]) && !!folded.docs
+  const counts = useMemo(() => {
+    const c: Record<BibleShow, number> = { all: project.bible.length, book: 0, series: 0, universe: 0 }
+    for (const e of project.bible) c[e.scope]++
+    return c
+  }, [project.bible])
+  const categories = project.bibleCategories ?? []
+  // In a one-bible view, only the categories that bible has (plus any it has entries in).
+  const shown = categories.filter((c) => show === 'all' || c.scopes.includes(show))
+  const keys = shown.map((c) => c.slug)
+  const allFolded = keys.every((k) => folded[k]) && !!folded.docs
 
+  const bibleDoc = (f: string) => /(^|\/)bible\/(timeline|style-guide)\.md$/.test(f)
+  const docLabel = (f: string, sc: BibleScope) =>
+    `${f.endsWith('timeline.md') ? 'Timeline' : 'Style guide'}${layered ? (sc === 'book' ? ' (this book)' : ` (${sc})`) : ''}`
   const docs = (
-    inSeries
-      ? [
-          ['bible/timeline.md', 'Timeline (this book)', 'book'],
-          [`${prefix}/bible/timeline.md`, 'Series timeline', 'series'],
-          [`${prefix}/bible/style-guide.md`, 'Series style guide', 'series']
-        ]
-      : [
-          ['bible/timeline.md', 'Timeline', 'book'],
-          ['bible/style-guide.md', 'Style guide', 'book']
-        ]
-  ).filter(([, label, sc]) => (show === 'all' || sc === show) && (!searching || label.toLowerCase().includes(term)))
+    [
+      ...(project.universe?.files ?? []).filter(bibleDoc).map((f) => [f, 'universe'] as const),
+      ...(project.series?.files ?? []).filter(bibleDoc).map((f) => [f, 'series'] as const),
+      ...project.files.filter((f) => f === 'bible/timeline.md' || f === 'bible/style-guide.md').map((f) => [f, 'book'] as const)
+    ] as [string, BibleScope][]
+  )
+    .map(([p, sc]) => ({ p, sc, label: docLabel(p, sc) }))
+    .filter((d) => (show === 'all' || d.sc === show) && (!searching || d.label.toLowerCase().includes(term)))
+
+  const editCategory = async (slug: string, sc: BibleScope) => {
+    try {
+      const c = await api.bible.saveCategory(slug, sc, {})
+      openTab({ kind: 'file', path: `${c.path}/_category.md` })
+    } catch (err) {
+      notify(String((err as Error).message ?? err), 'error')
+    }
+  }
 
   return (
     <div>
@@ -443,29 +497,29 @@ function BiblePanel() {
         )}
       </div>
       <div className="mx-2 mb-2 flex items-center gap-1">
-        {inSeries && (
-          <div className="flex flex-1 items-center gap-0.5 rounded-md border border-line p-0.5 text-[11.5px]" role="radiogroup" aria-label="Show entries from">
-            {(['all', 'series', 'book'] as const).map((v) => (
+        {layered && (
+          <div className="flex min-w-0 flex-1 items-center gap-0.5 rounded-md border border-line p-0.5 text-[11.5px]" role="radiogroup" aria-label="Show entries from">
+            {(['all', ...[...layers].reverse()] as BibleShow[]).map((v) => (
               <button
                 key={v}
                 role="radio"
                 aria-checked={show === v}
-                title={v === 'all' ? 'Show every entry' : v === 'series' ? 'Only entries shared by every book in the series' : 'Only entries that belong to this book'}
-                className={`flex flex-1 items-center justify-center gap-1 rounded px-1.5 py-0.5 ${
+                title={`${v === 'all' ? 'Show every entry' : SCOPE_HINT[v]} (${counts[v]})`}
+                className={`flex min-w-0 flex-auto items-center justify-center gap-1 rounded px-1 py-0.5 ${
                   show === v ? 'bg-raised text-fg shadow-[var(--shadow-sm)]' : 'text-muted hover:text-fg'
                 }`}
                 onClick={() => setShow(v)}
               >
-                {v === 'all' ? 'All' : v === 'series' ? 'Series' : 'Book'}
-                <span className="text-[10.5px] tabular-nums text-faint">{counts[v]}</span>
+                <span className="truncate">{v === 'all' ? 'All' : SCOPE_LABEL[v]}</span>
+                {layers.length < 3 && <span className="text-[10.5px] tabular-nums text-faint">{counts[v]}</span>}
               </button>
             ))}
           </div>
         )}
         <button
-          className={`icon-btn h-[26px] w-[26px] shrink-0 ${inSeries ? '' : 'ml-auto'}`}
+          className={`icon-btn h-[26px] w-[26px] shrink-0 ${layered ? '' : 'ml-auto'}`}
           title={allFolded ? 'Expand all sections' : 'Collapse all sections'}
-          onClick={() => saveFolded(Object.fromEntries([...kinds, 'docs'].map((k) => [k, !allFolded])))}
+          onClick={() => saveFolded({ ...folded, ...Object.fromEntries([...keys, 'docs'].map((k) => [k, !allFolded])) })}
         >
           {allFolded ? <ChevronsUpDown size={13} /> : <ChevronsDownUp size={13} />}
         </button>
@@ -482,29 +536,53 @@ function BiblePanel() {
         </button>
       </div>
       {searching && entries.length === 0 && docs.length === 0 && <Empty>Nothing in the bible matches “{q.trim()}”.</Empty>}
-      {kinds.map((k) => {
+      {!searching && categories.length === 0 && <Empty>The bible has no categories yet. Add one below.</Empty>}
+      {shown.map((c) => {
+        const k = c.slug
+        const key = k
         const list = entries.filter((e) => e.kind === k)
         if (searching && list.length === 0) return null
-        const open = isOpen(k)
-        const meta = KIND_META[k]
+        const open = isOpen(key)
+        const total = project.bible.filter((e) => e.kind === k).length
+        const nounCap = `${c.noun[0]?.toUpperCase() ?? ''}${c.noun.slice(1)}`
         return (
           <div key={k} className="mb-1">
             <SectionHeader
               open={open}
-              onToggle={() => toggle(k)}
-              icon={meta.icon}
-              label={meta.label}
+              onToggle={() => toggle(key)}
+              icon={kindIcon(k)}
+              label={c.name}
               count={list.length}
               actions={
-                <MiniBtn
-                  title={`New ${meta.noun}`}
-                  onClick={() => {
-                    if (folded[k]) toggle(k)
-                    setAdding(k)
-                  }}
-                >
-                  <Plus size={13} />
-                </MiniBtn>
+                <>
+                  <MiniBtn title={`Category settings: name, fields and guidance for the AI`} onClick={() => void editCategory(k, c.scopes[0])}>
+                    <Pencil size={12} />
+                  </MiniBtn>
+                  {total === 0 && (
+                    <MiniBtn
+                      title="Delete this empty category"
+                      onClick={async () => {
+                        if (!confirm(`Delete the empty category "${c.name}"${c.scopes.length > 1 ? ` from the ${c.scopes.join(', ')} bibles` : ''}?`)) return
+                        try {
+                          await api.bible.deleteCategory(k)
+                        } catch (err) {
+                          notify(String((err as Error).message ?? err), 'error')
+                        }
+                      }}
+                    >
+                      <Trash2 size={12} />
+                    </MiniBtn>
+                  )}
+                  <MiniBtn
+                    title={`New ${c.noun}`}
+                    onClick={() => {
+                      if (folded[key]) toggle(key)
+                      setAdding(k)
+                    }}
+                  >
+                    <Plus size={13} />
+                  </MiniBtn>
+                </>
               }
             />
             {open && (
@@ -512,41 +590,24 @@ function BiblePanel() {
                 {adding === k && (
                   <div>
                     <InlineInput
-                      placeholder={`${meta.noun[0].toUpperCase()}${meta.noun.slice(1)} name`}
+                      placeholder={`${nounCap} name`}
                       onCancel={() => setAdding(null)}
                       onSubmit={async (name) => {
                         setAdding(null)
-                        const e = await api.bible.upsert(k, name, { aliases: [], summary: '' }, '', scope)
-                        openTab({ kind: 'file', path: e.path })
+                        try {
+                          const e = await api.bible.upsert(k, name, { aliases: [], summary: '' }, '', scope)
+                          openTab({ kind: 'file', path: e.path })
+                        } catch (err) {
+                          notify(String((err as Error).message ?? err), 'error')
+                        }
                       }}
                     />
-                    {inSeries && (
-                      <div className="mx-2 mb-1 flex items-center gap-1 px-1 text-[11px] text-faint">
-                        {show === 'all' ? (
-                          <>
-                            <span>Add to</span>
-                            {(['series', 'book'] as const).map((sc) => (
-                              <button
-                                key={sc}
-                                // Keep the name field focused; it cancels when it loses focus.
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => setAddScope(sc)}
-                                className={`rounded px-1.5 py-px ${addScope === sc ? 'bg-raised text-fg' : 'hover:text-fg'}`}
-                              >
-                                {sc === 'series' ? 'Series bible' : 'This book'}
-                              </button>
-                            ))}
-                          </>
-                        ) : (
-                          <span>Adds to {show === 'series' ? 'the series bible' : 'this book'}.</span>
-                        )}
-                      </div>
-                    )}
+                    <ScopePicker layers={layers} show={show} value={addScope} onChange={setAddScope} what={`the ${c.noun}`} />
                   </div>
                 )}
                 {list.length === 0 && adding !== k && (
                   <div className="mx-2 py-1 pl-[30px] text-[12px] text-faint">
-                    {show === 'all' ? `No ${meta.label.toLowerCase()} yet.` : `No ${show} ${meta.label.toLowerCase()}.`}
+                    {show === 'all' ? `No ${c.name.toLowerCase()} yet.` : `No ${show} ${c.name.toLowerCase()}.`}
                   </div>
                 )}
                 {list.map((e) => (
@@ -557,26 +618,27 @@ function BiblePanel() {
                     title={e.summary}
                     onClick={() => openTab({ kind: 'file', path: e.path })}
                     actions={
-                      k === 'characters' ? (
-                        <MiniBtn
-                          title="Develop with AI"
-                          onClick={async () => {
-                            const text = await api.commands.expand('character', e.name)
-                            if (text) void sendToEngine(text, { display: `/character ${e.name}` })
-                          }}
-                        >
-                          <Sparkles size={13} />
-                        </MiniBtn>
-                      ) : undefined
+                      <MiniBtn
+                        title="Develop with AI"
+                        onClick={async () => {
+                          const cmd = k === 'characters' ? 'character' : 'worldbuild'
+                          const text = await api.commands.expand(cmd, e.name)
+                          if (text) void sendToEngine(text, { display: `/${cmd} ${e.name}` })
+                        }}
+                      >
+                        <Sparkles size={13} />
+                      </MiniBtn>
                     }
                   >
                     <span className="truncate">{e.name}</span>
-                    {inSeries && show === 'all' && (
+                    {layered && show === 'all' && (
                       <span
-                        className={`ml-1 shrink-0 rounded px-1 text-[10px] group-hover:hidden ${e.scope === 'series' ? 'bg-accent/15 text-accent' : 'bg-line text-faint'}`}
-                        title={e.scope === 'series' ? 'Shared by every book in the series' : 'Only in this book'}
+                        className={`ml-1 shrink-0 rounded px-1 text-[10px] group-hover:hidden ${
+                          e.scope === 'universe' ? 'bg-accent/25 text-accent' : e.scope === 'series' ? 'bg-accent/15 text-accent' : 'bg-line text-faint'
+                        }`}
+                        title={e.scope === 'book' ? 'Only in this book' : e.scope === 'series' ? 'Shared by every book in the series' : 'Shared by every series and book in the universe'}
                       >
-                        {e.scope === 'series' ? 'series' : 'book'}
+                        {e.scope}
                       </span>
                     )}
                   </Row>
@@ -586,11 +648,37 @@ function BiblePanel() {
           </div>
         )
       })}
+      {!searching && (
+        <div className="px-2">
+          {addingCategory ? (
+            <div className="-mx-2">
+              <InlineInput
+                placeholder="Category name, e.g. Powers & Abilities"
+                onCancel={() => setAddingCategory(false)}
+                onSubmit={async (name) => {
+                  setAddingCategory(false)
+                  try {
+                    const c = await api.bible.saveCategory(name, scope, { name })
+                    openTab({ kind: 'file', path: `${c.path}/_category.md` })
+                  } catch (err) {
+                    notify(String((err as Error).message ?? err), 'error')
+                  }
+                }}
+              />
+              <ScopePicker layers={layers} show={show} value={addScope} onChange={setAddScope} what="the category" />
+            </div>
+          ) : (
+            <button className="action-row" onClick={() => setAddingCategory(true)}>
+              <FolderPlus size={13} /> New category
+            </button>
+          )}
+        </div>
+      )}
       {docs.length > 0 && (
         <div className="mt-2 border-t border-line pt-2">
           <SectionHeader open={isOpen('docs')} onToggle={() => toggle('docs')} icon={<FileText size={13} />} label="Documents" />
           {isOpen('docs') &&
-            docs.map(([p, label]) => (
+            docs.map(({ p, label }) => (
               <Row key={p} indent={1} active={activePath === p} onClick={() => openTab({ kind: 'file', path: p })}>
                 <span className="truncate">{label}</span>
               </Row>
@@ -649,12 +737,12 @@ function FilesPanel() {
   const activePath = useActivePath()
   const groups = useMemo(() => {
     const g: Record<string, string[]> = {}
-    for (const f of [...project.files, ...(project.series?.files ?? [])]) {
+    for (const f of [...project.files, ...(project.series?.files ?? []), ...(project.universe?.files ?? [])]) {
       const d = f.includes('/') ? f.slice(0, f.lastIndexOf('/')) : '.'
       ;(g[d] ??= []).push(f)
     }
     return Object.entries(g).sort(([a], [b]) => a.localeCompare(b))
-  }, [project.files, project.series])
+  }, [project.files, project.series, project.universe])
   return (
     <div>
       {groups.map(([dir, files]) => (

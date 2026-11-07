@@ -47,7 +47,7 @@ const api = {
     saveConfig: inv('project:saveConfig'),
     onChanged: (cb: (p: unknown) => void) => on('project:changed', cb)
   },
-  bible: { upsert: inv('bible:upsert') },
+  bible: { upsert: inv('bible:upsert'), saveCategory: inv('bible:saveCategory'), deleteCategory: inv('bible:deleteCategory') },
   series: {
     addBook: inv('series:addBook'),
     openBook: inv('series:openBook'),

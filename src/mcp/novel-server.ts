@@ -7,8 +7,18 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import {
-  BIBLE_KINDS,
+  bibleScopes,
   continuityContext,
+  findAppearances,
+  findSeriesRoot,
+  findUniverseRoot,
+  listBibleCategories,
+  loadUniverse,
+  saveBibleCategory,
+  saveUniverseConfig,
+  loadUniverseConfig,
+  syncAgentInstructions,
+  universeBookRoots,
   countWords,
   createChapter,
   createScene,
@@ -30,7 +40,7 @@ import {
   saveSeriesConfig
 } from '../shared/project'
 import { createSnapshot } from '../shared/snapshots'
-import type { BibleKind, SceneStatus } from '../shared/types'
+import type { BibleScope, SceneStatus } from '../shared/types'
 
 function argRoot(): string {
   const i = process.argv.indexOf('--project')
@@ -43,7 +53,8 @@ const ok = (text: string) => ({ content: [{ type: 'text' as const, text }] })
 const json = (v: unknown) => ok(JSON.stringify(v, null, 2))
 const fail = (e: unknown) => ({ content: [{ type: 'text' as const, text: `Error: ${(e as Error).message ?? e}` }], isError: true })
 
-const kindSchema = z.enum(BIBLE_KINDS as [BibleKind, ...BibleKind[]])
+const kindSchema = z.string().describe('Bible category slug, e.g. "characters". The author defines the categories; see bible_categories.')
+const scopeSchema = z.enum(['book', 'series', 'universe'])
 const statusSchema = z.enum(['idea', 'outlined', 'drafted', 'revised', 'final'])
 
 export function buildServer(root: string): McpServer {
@@ -77,12 +88,50 @@ export function buildServer(root: string): McpServer {
         scenes: c.scenes.map((s) => ({ path: s.path, title: s.title, status: s.status, pov: s.pov, words: s.words, summary: s.summary }))
       })),
       bible: listBible(root).map((e) => ({ kind: e.kind, scope: e.scope, name: e.name, path: e.path, summary: e.summary })),
+      bibleCategories: listBibleCategories(root).map((c) => ({ slug: c.slug, name: c.name, scopes: c.scopes })),
       series: (() => {
         const si = loadSeries(root)
         return si ? { title: si.config.title, thisBook: cfg.seriesNumber, books: si.books.map((b) => ({ number: b.number, title: b.title, folder: b.folder, words: b.words })) } : null
+      })(),
+      universe: (() => {
+        const u = findUniverseRoot(root)
+        return u ? { title: loadUniverseConfig(u).title, folder: path.relative(root, u).split(path.sep).join('/'), note: 'Call universe_overview for every series and book.' } : null
       })()
     }
   })
+
+  tool(
+    'universe_overview',
+    'For books in a shared universe: the universe config, every series (with its books) and every standalone, crossover events and their parts, and the universe bible index. Paths are relative to this book.',
+    { includeSummaries: z.boolean().default(false).describe('Also list every scene summary of every book (long in a big universe).') },
+    ({ includeSummaries }) => {
+      const u = loadUniverse(root)
+      if (!u) return 'This book is not part of a universe.'
+      const rel = (abs: string) => path.relative(root, abs).split(path.sep).join('/') || '.'
+      const book = (b: { root: string; number: number; title: string; words: number; premise?: string; format?: string; crossover?: unknown; current: boolean }) => ({
+        number: b.number,
+        title: b.title,
+        folder: rel(b.root),
+        current: b.current,
+        format: b.format ?? 'novel',
+        words: b.words,
+        premise: b.premise,
+        crossover: b.crossover,
+        scenes: includeSummaries
+          ? listChapters(b.root).flatMap((c) => c.scenes.map((sc) => ({ path: `${rel(b.root)}/${sc.path}`, title: sc.title, summary: sc.summary })))
+          : undefined
+      })
+      return {
+        universe: u.config,
+        totalWords: u.totalWords,
+        universeFiles: u.files,
+        series: u.series.map((s) => ({ title: s.title, folder: rel(s.root), plannedBooks: s.plannedBooks, current: s.current, books: s.books.map(book) })),
+        standalones: u.standalones.map(book),
+        crossovers: u.crossovers.map((c) => ({ event: c.event, parts: c.parts.map((p) => ({ part: p.part, title: p.title, series: p.seriesTitle ?? null, folder: p.path, current: p.current })) })),
+        universeBible: listBible(root, undefined, ['universe']).map((e) => ({ kind: e.kind, name: e.name, path: e.path, summary: e.summary }))
+      }
+    }
+  )
 
   tool(
     'series_overview',
@@ -102,6 +151,8 @@ export function buildServer(root: string): McpServer {
           current: b.current,
           words: b.words,
           premise: b.premise,
+          format: b.format ?? 'novel',
+          crossover: b.crossover,
           scenes: includeSummaries
             ? listChapters(b.root).flatMap((c) => c.scenes.map((sc) => ({ path: `../${b.folder}/${sc.path}`, title: sc.title, status: sc.status, summary: sc.summary })))
             : undefined
@@ -113,7 +164,7 @@ export function buildServer(root: string): McpServer {
 
   tool(
     'project_update_config',
-    'Update book facts in novel.json (title, author, genre, pov, tense, targetWords, dailyGoal). For a series, seriesTitle / seriesDescription / plannedBooks update series.json.',
+    'Update book facts in novel.json (title, author, genre, pov, tense, targetWords, dailyGoal, format, crossover). For a series, seriesTitle / seriesDescription / plannedBooks update series.json; in a universe, universeTitle / universeDescription update universe.json.',
     {
       title: z.string().optional(),
       author: z.string().optional(),
@@ -122,14 +173,38 @@ export function buildServer(root: string): McpServer {
       tense: z.string().optional(),
       targetWords: z.number().optional(),
       dailyGoal: z.number().optional(),
+      format: z.enum(['novel', 'novella', 'short-story']).optional(),
+      crossover: z
+        .object({ event: z.string(), part: z.number().int().min(1) })
+        .nullable()
+        .optional()
+        .describe('Universe books only: make this book part N of a crossover event (books with the same event name are its parts). null removes it.'),
       seriesTitle: z.string().optional(),
       seriesDescription: z.string().optional(),
-      plannedBooks: z.number().optional()
+      plannedBooks: z.number().optional(),
+      universeTitle: z.string().optional(),
+      universeDescription: z.string().optional()
     },
-    ({ seriesTitle, seriesDescription, plannedBooks, ...book }) => {
+    ({ seriesTitle, seriesDescription, plannedBooks, universeTitle, universeDescription, crossover, ...book }) => {
       const cfg = loadConfig(root)
       const clean = Object.fromEntries(Object.entries(book).filter(([, v]) => v !== undefined))
-      saveConfig(root, { ...cfg, ...clean })
+      const next = { ...cfg, ...clean }
+      if (crossover === null) delete next.crossover
+      else if (crossover) {
+        if (!findUniverseRoot(root)) throw new Error('Crossovers are for books in a universe.')
+        next.crossover = { event: crossover.event.trim(), part: crossover.part }
+      }
+      saveConfig(root, next)
+      const u = findUniverseRoot(root)
+      // Other books list this one (and its crossover part) in their instructions.
+      if (u) for (const b of universeBookRoots(u)) syncAgentInstructions(b)
+      if (u && (universeTitle || universeDescription)) {
+        saveUniverseConfig(u, {
+          ...loadUniverseConfig(u),
+          ...(universeTitle ? { title: universeTitle } : {}),
+          ...(universeDescription ? { description: universeDescription } : {})
+        })
+      }
       const si = loadSeries(root)
       if (si && (seriesTitle || seriesDescription || plannedBooks)) {
         const sc = loadSeriesConfig(si.root)
@@ -189,10 +264,43 @@ export function buildServer(root: string): McpServer {
 
   tool(
     'bible_list',
-    'List story bible entries, optionally filtered by kind. In a series this includes the shared series bible (scope "series").',
-    { kind: kindSchema.optional(), scope: z.enum(['book', 'series', 'all']).default('all') },
+    'List story bible entries, optionally filtered by category. In a series this includes the shared series bible (scope "series"), and in a universe the universe bible (scope "universe").',
+    { kind: kindSchema.optional(), scope: z.enum(['book', 'series', 'universe', 'all']).default('all') },
     ({ kind, scope }) =>
-      listBible(root, kind, scope === 'all' ? ['book', 'series'] : [scope]).map((e) => ({ kind: e.kind, scope: e.scope, name: e.name, aliases: e.aliases, summary: e.summary, path: e.path }))
+      listBible(root, kind, scope === 'all' ? undefined : [scope]).map((e) => ({ kind: e.kind, scope: e.scope, name: e.name, aliases: e.aliases, summary: e.summary, path: e.path }))
+  )
+
+  tool(
+    'bible_categories',
+    "The story bible's categories (the author decides them): slug, name, the fields new entries start with, the author's guidance on what to record, and which bibles (book/series/universe) have each one.",
+    {},
+    () => ({ layers: bibleScopes(root), categories: listBibleCategories(root) })
+  )
+
+  tool(
+    'bible_category_save',
+    'Create a story bible category, or change its settings. Only do this when the author asks for a new category or agrees to one.',
+    {
+      name: z.string().describe('Category name, e.g. "Powers & Abilities", or the slug of an existing category'),
+      scope: scopeSchema.default('book').describe('Which bible gets the category. In a universe, use "universe" so every series and book shares it.'),
+      noun: z.string().optional().describe('Singular for one entry, e.g. "power"'),
+      fields: z.array(z.string()).optional().describe('Fields every new entry starts with, e.g. ["source", "limits", "users"]'),
+      guidance: z.string().optional().describe('What to record for each entry in this category')
+    },
+    ({ name, scope, ...opts }) => {
+      const c = saveBibleCategory(root, name, scope as BibleScope, opts)
+      return `Saved category ${c.slug} (${c.name}) in the ${scope} bible.`
+    }
+  )
+
+  tool(
+    'bible_appearances',
+    'Every scene where a character, place or other bible entry appears, across this book and (in a series or universe) every other book: listed in the scene frontmatter, or mentioned in the prose. Use before writing a character who has appeared elsewhere.',
+    { name: z.string().describe('Bible entry name, alias or slug (or any name)') },
+    ({ name }) => {
+      const found = findAppearances(root, name)
+      return found.length ? found : `No scene mentions "${name}".`
+    }
   )
 
   tool('bible_get', 'Get a full story bible entry by name, alias or slug.', { name: z.string() }, ({ name }) => {
@@ -207,17 +315,18 @@ export function buildServer(root: string): McpServer {
 
   tool(
     'bible_upsert',
-    'Create or update a story bible entry. Fields become YAML frontmatter (e.g. role, age, appearance, want, need, flaw, aliases, summary). Body is prose notes.',
+    'Create or update a story bible entry. Fields become YAML frontmatter (e.g. role, age, appearance, want, need, flaw, aliases, summary). Body is prose notes. Use an existing category (see bible_categories) unless the author asked for a new one.',
     {
       kind: kindSchema,
       name: z.string(),
       fields: z.record(z.string(), z.any()).optional(),
       body: z.string().optional(),
       mode: z.enum(['merge', 'replace']).default('merge'),
-      scope: z
-        .enum(['book', 'series'])
+      scope: scopeSchema
         .optional()
-        .describe('Series projects only: "series" = shared by every book (recurring characters, world rules); "book" = this book only. Default: where the entry already lives, else book.')
+        .describe(
+          '"universe" = shared by every series and book in the universe (characters who cross over, teams, world rules); "series" = shared by every book in this series; "book" = this book only. Default: where the entry already lives, else book.'
+        )
     },
     ({ kind, name, fields, body, mode, scope }) => {
       const e = upsertBibleEntry(root, kind, name, fields ?? {}, body, mode, scope)
@@ -239,14 +348,38 @@ export function buildServer(root: string): McpServer {
     return `Updated outline/${which}.md`
   })
 
-  tool('timeline_add', 'Append an event to bible/timeline.md.', { when: z.string(), event: z.string(), chapter: z.string().optional() }, ({ when, event, chapter }) => {
-    const f = path.join(root, 'bible', 'timeline.md')
-    const prev = readText(f) || '# Timeline\n\n| When | Event | Chapter |\n|------|-------|---------|\n'
-    writeText(f, `${prev.trimEnd()}\n| ${when} | ${event.replace(/\|/g, '/')} | ${chapter ?? ''} |\n`)
-    return 'Timeline updated.'
-  })
+  const layerRoot = (scope: BibleScope) => {
+    const r = scope === 'book' ? root : scope === 'series' ? findSeriesRoot(root) : findUniverseRoot(root)
+    if (!r) throw new Error(`This book is not part of a ${scope}.`)
+    return r
+  }
 
-  tool('style_guide_get', 'Read the style/voice guide.', {}, () => readText(path.join(root, 'bible', 'style-guide.md')) || '(no style guide yet)')
+  tool(
+    'timeline_add',
+    'Append an event to a timeline: this book\'s bible/timeline.md, or the series or universe timeline for events that matter beyond this book.',
+    {
+      when: z.string(),
+      event: z.string(),
+      chapter: z.string().optional().describe('Chapter (book timeline) or book (series/universe timeline) where it happens'),
+      scope: scopeSchema.default('book')
+    },
+    ({ when, event, chapter, scope }) => {
+      const f = path.join(layerRoot(scope as BibleScope), 'bible', 'timeline.md')
+      const col = scope === 'book' ? 'Chapter' : 'Book'
+      const prev = readText(f) || `# Timeline\n\n| When | Event | ${col} |\n|------|-------|------|\n`
+      writeText(f, `${prev.trimEnd()}\n| ${when} | ${event.replace(/\|/g, '/')} | ${(chapter ?? '').replace(/\|/g, '/')} |\n`)
+      return `${scope === 'book' ? 'Book' : scope === 'series' ? 'Series' : 'Universe'} timeline updated.`
+    }
+  )
+
+  tool('style_guide_get', 'Read the style/voice guides that apply to this book: the universe, series and book guides that exist, broadest first.', {}, () => {
+    const parts = (['universe', 'series', 'book'] as BibleScope[])
+      .filter((s) => bibleScopes(root).includes(s))
+      .map((s) => ({ s, text: readText(path.join(layerRoot(s), 'bible', 'style-guide.md')) }))
+      .filter((x) => x.text.trim())
+      .map((x) => `<!-- ${x.s} style guide -->\n${x.text}`)
+    return parts.join('\n\n') || '(no style guide yet)'
+  })
 
   tool('word_count', 'Word count for a file, or the whole manuscript if no path given.', { path: z.string().optional() }, ({ path: p }) => {
     if (p) return { path: p, words: countWords(readText(resolveInside(root, p))) }
